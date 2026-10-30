@@ -5,7 +5,7 @@ from openai import OpenAI
 
 # 페이지 설정
 st.set_page_config(page_title="한영 번역기", page_icon="🌐")
-st.title("🌐 한영 번역기")
+st.title("개쩌는 한영 번역기")
 st.write("한국어 문장을 자연스러운 영어로 번역합니다.")
 
 # API 키 입력

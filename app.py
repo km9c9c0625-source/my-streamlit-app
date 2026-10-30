@@ -3,54 +3,48 @@ import os
 import streamlit as st
 from openai import OpenAI
 
+# OpenAI 클라이언트 생성
+client = OpenAI()
+
 # 페이지 설정
-st.set_page_config(page_title="텍스트 음성 변환", page_icon="🔊")
-st.title("🔊 텍스트 음성 변환")
-st.caption("생성되는 음성은 AI가 만든 음성입니다.")
+st.set_page_config(page_title="OpenAI 챗봇", page_icon="🤖")
+st.title("🤖 OpenAI API 기반 챗봇")
+st.caption("Streamlit + OpenAI API 실습 예제")
 
-# API 키 설정
-api_key = os.getenv("OPENAI_API_KEY") or st.sidebar.text_input(
-    "OpenAI API 키",
-    type="password"
-)
+# 세션 상태 초기화
+if "messages" not in st.session_state:
+    st.session_state.messages = [{"role": "assistant",
+                                  "content": "안녕하세요. 무엇을 도와드릴까요?"}]
 
-# 텍스트 입력
-text = st.text_area(
-    "읽을 텍스트를 입력하세요.",
-    "안녕하세요. OpenAI 텍스트 음성 변환 실습입니다."
-)
+# 기존 대화 출력
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# 버튼
-if st.button("음성으로 변환"):
-    if text.strip() == "":
-        st.warning("읽을 텍스트를 입력해주세요.")
-    elif not api_key:
-        st.warning("왼쪽 사이드바에 API 키를 입력해주세요.")
-    else:
-        try:
-            client = OpenAI(api_key=api_key)
+# 사용자 입력
+user_input = st.chat_input("메시지를 입력하세요...")
 
-            with st.spinner("음성 생성 중..."):
-                # TTS 생성
-                speech = client.audio.speech.create(
-                    model="tts-1",
-                    voice="alloy",
-                    input=text,
-                    response_format="mp3"
-                )
-                audio_bytes = speech.content
+if user_input:
+    # 사용자 메시지 저장 및 출력
+    st.session_state.messages.append(
+        {"role": "user", "content": user_input}
+    )
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-            # 음성 출력
-            st.markdown("### 🔊 음성 재생")
-            st.audio(audio_bytes, format="audio/mp3")
+    # 모델 응답 생성
+    try:
+        response = client.responses.create(
+            model="gpt-4.1-mini",
+            input=st.session_state.messages
+        )
+        assistant_reply = response.output_text
+    except Exception as e:
+        assistant_reply = f"오류가 발생했습니다: {e}"
 
-            # 파일 다운로드
-            st.download_button(
-                "MP3 다운로드",
-                data=audio_bytes,
-                file_name="speech.mp3",
-                mime="audio/mpeg"
-            )
-
-        except Exception as e:
-            st.error(f"음성 생성 중 오류가 발생했습니다: {e}")
+    # 응답 저장 및 출력
+    st.session_state.messages.append(
+        {"role": "assistant", "content": assistant_reply}
+    )
+    with st.chat_message("assistant"):
+        st.markdown(assistant_reply)

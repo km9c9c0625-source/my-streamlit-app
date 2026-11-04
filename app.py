@@ -914,6 +914,23 @@ with st.sidebar:
                     st.rerun()
             st.caption(f"{task['우선순위']} · {task['상태']} · 마감: {task['마감일'] or '미정'}")
             st.caption("출처: " + task["_source"])
+            # [추가] 업무 완료 체크 버튼 (○ 누르면 완료, ✓ 누르면 완료 취소)
+            is_done = task["상태"] == "완료"
+            icon_col, title_col = st.columns([1, 5])
+            with icon_col:
+                if st.button(
+                    "✓" if is_done else "○",
+                    key=f"toggle_{task['_file']}_{task['번호']}",
+                    help="완료 취소" if is_done else "업무 완료"
+                ):
+                    source_tasks = st.session_state.task_lists[task["_file"]]
+                    for t in source_tasks:
+                        if t["번호"] == task["번호"]:
+                            t["상태"] = "대기" if is_done else "완료"
+                            break
+                    st.rerun()
+            with title_col:
+                st.caption("완료됨 · 누르면 취소" if is_done else "완료하면 체크하세요")
     if not tasks:
         st.info("저장된 업무가 없습니다. 회의록에서 업무를 생성해주세요.")
 

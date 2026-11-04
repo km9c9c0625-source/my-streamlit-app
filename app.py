@@ -899,24 +899,12 @@ with st.sidebar:
     tasks = all_saved_tasks()
     ordered = recommend_priority(tasks)
     st.caption(f"전체 {len(tasks)}개 · 미완료 {sum(t['상태'] != '완료' for t in tasks)}개 · 완료 {sum(t['상태'] == '완료' for t in tasks)}개")
+    # [수정] 업무 카드: 왼쪽 완료 체크(○/✓) + 업무명(완료 시 취소선) + 오른쪽 삭제(✕)
     for task in ordered:
-        color = {"높음": "🔴", "보통": "🟠", "낮음": "🟢", "확인 필요": "⚪", "완료": "✅"}[task["우선순위"]]
+        is_done = task["상태"] == "완료"  # [추가] 완료 여부
         with st.container(border=True):
-            title_col, delete_col = st.columns([5, 1])
-            with title_col:
-                st.markdown(f"{color} **{task['업무']}**")
-            with delete_col:
-                if st.button("✕", key=f"delete_{task['_file']}_{task['번호']}", help="이 업무 삭제"):
-                    removed = st.session_state.deleted_tasks.setdefault(task["_file"], [])
-                    removed.append(re.sub(r"\s+", "", task.get("_original_name", task["업무"])))
-                    source_tasks = st.session_state.task_lists[task["_file"]]
-                    source_tasks[:] = [t for t in source_tasks if t["번호"] != task["번호"]]
-                    st.rerun()
-            st.caption(f"{task['우선순위']} · {task['상태']} · 마감: {task['마감일'] or '미정'}")
-            st.caption("출처: " + task["_source"])
-            # [추가] 업무 완료 체크 버튼 (○ 누르면 완료, ✓ 누르면 완료 취소)
-            is_done = task["상태"] == "완료"
-            icon_col, title_col = st.columns([1, 5])
+            icon_col, title_col, delete_col = st.columns([1, 5, 1])  # [수정] 체크 칸 추가
+            # [추가] 완료 체크 버튼 (○ 누르면 완료, ✓ 누르면 완료 취소)
             with icon_col:
                 if st.button(
                     "✓" if is_done else "○",
@@ -929,8 +917,26 @@ with st.sidebar:
                             t["상태"] = "대기" if is_done else "완료"
                             break
                     st.rerun()
+            # [추가] 완료한 업무는 회색 취소선, 나머지는 굵게
             with title_col:
-                st.caption("완료됨 · 누르면 취소" if is_done else "완료하면 체크하세요")
+                if is_done:
+                    st.markdown(
+                        f"<span style='color:#999; opacity:0.55; "
+                        f"text-decoration:line-through;'>"
+                        f"{task['업무']}</span>",
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.markdown(f"**{task['업무']}**")
+            with delete_col:
+                if st.button("✕", key=f"delete_{task['_file']}_{task['번호']}", help="이 업무 삭제"):
+                    removed = st.session_state.deleted_tasks.setdefault(task["_file"], [])
+                    removed.append(re.sub(r"\s+", "", task.get("_original_name", task["업무"])))
+                    source_tasks = st.session_state.task_lists[task["_file"]]
+                    source_tasks[:] = [t for t in source_tasks if t["번호"] != task["번호"]]
+                    st.rerun()
+            st.caption(f"{task['우선순위']} · {task['상태']} · 마감: {task['마감일'] or '미정'}")
+            st.caption("출처: " + task["_source"])
     if not tasks:
         st.info("저장된 업무가 없습니다. 회의록에서 업무를 생성해주세요.")
 

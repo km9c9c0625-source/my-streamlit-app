@@ -766,6 +766,8 @@ with st.sidebar:
     robot = Path(__file__).resolve().parent / "Docs" / "aivle_robot.png"
     if robot.exists():
         st.image(str(robot), width=160)
+    else:  # [추가] Docs 폴더에 그림이 없으면 에이블 로봇 그림을 인터넷 주소로 표시
+        st.image("https://raw.githubusercontent.com/Jangrae/img/master/ai_robot.png", width=160)
     st.title("AIVLE")
     st.caption("음성인식 AI 개인비서")
     if st.button("대화 초기화"):

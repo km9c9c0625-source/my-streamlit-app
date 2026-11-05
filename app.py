@@ -1137,3 +1137,4 @@ with mail_tab:
     st.divider()
     st.markdown("**발송·예약 현황**")
     show_mail_status()
+

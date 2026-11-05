@@ -7,6 +7,11 @@ from pathlib import Path
 from email.mime.text import MIMEText
 
 import streamlit as st
+import os
+st.write("실행 위치:", os.getcwd())
+st.write("Docs 있음?:", os.path.exists("Docs"))
+if os.path.exists("Docs"):
+    st.write("Docs 안 파일:", os.listdir("Docs"))
 from openai import OpenAI
 
 

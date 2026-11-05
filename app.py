@@ -13,7 +13,7 @@ from openai import OpenAI
 # 페이지 설정
 st.set_page_config(page_title="AIVLE | 음성인식 AI 개인비서", page_icon="🤖", layout="wide")
 
-# 역할 지정 
+# 역할 지정
 sys_role = """
 당신은 김 대리의 AI 개인비서 '에이블'입니다.
 첨부된 회의록을 근거로 회의 내용을 요약하고, 김 대리의 담당 업무를 정확히 안내합니다.

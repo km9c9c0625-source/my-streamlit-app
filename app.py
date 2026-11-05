@@ -358,16 +358,19 @@ def make_task_list(client, meeting_text, meeting_date=""):
 
 
 def shared_meeting_tasks(client, meeting_text, force=False):
-    # 채팅과 리스트가 동일한 회의록·회의 날짜의 추출 결과를 재사용
     source_id = st.session_state.meeting_id
-    meeting_date = meeting_reference_date(meeting_text, st.session_state.get("meeting_date_" + source_id, "").strip())
-    key = source_id + "|context-v3|" + meeting_date
+    entered = st.session_state.get("meeting_date_" + source_id, "").strip()
+    meeting_date = meeting_reference_date(meeting_text, entered)
+    key = source_id + "|context-v5|" + meeting_date
+    if force:
+        # 생성 버튼을 직접 누르면 이 회의록에서 삭제했던 업무도 다시 불러옴(수정사항)
+        st.session_state.deleted_tasks.pop(source_id, None)
     if force or key not in st.session_state.task_analysis:
-        st.session_state.task_analysis[key] = make_task_list(client, meeting_text, meeting_date)
+        rows = make_task_list(client, meeting_text, meeting_date)
+        st.session_state.task_analysis[key] = rows
     rows = st.session_state.task_analysis[key]
     add_saved_tasks(source_id, rows)
     return rows
-
 
 
 def recommend_priority(task_list, today=None):

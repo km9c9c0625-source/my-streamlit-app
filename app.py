@@ -4,14 +4,14 @@ AIVLE School 학습 도우미 (미션 3·4)
 [필수 기능]
 - 업로드된 문서 자동 벡터화 → 01번 노트북의 rag_pipeline()으로 RAG 체인 구성
 - 관리자 영역 : 백서 업로드·버전 변경(모든 사용자에게 적용), 질문·평가 기록 CSV 내려받기
-- 시스템 메시지 : 백서 근거로 명확히 답하고, 마지막에 '🚀 도전 한 걸음'으로 성장 행동 제안
+- 시스템 메시지 : 백서 근거로 명확히 답하고, 마지막에 '도전 한 걸음'으로 성장 행동 제안
 
 [추가 기능]
 - 로그인 : 관리자 / 사용자 구분 (로그인 없이 게스트로 바로 질문 가능)
-- 채팅 입력 : 텍스트 · 🎙️ 음성 · 📎 텍스트 파일(.txt, .md)
+- 채팅 입력 : 텍스트 · 음성 · 텍스트 파일(.txt, .md)
 - 답변 아래 각주 : [1], [2]가 어느 자료(FAQ 번호·절·쪽)에서 왔는지 표시 + 근거 원문(표 포함) 보기
-- 👍/👎 평가 + 백서에 없는 질문 자동 수집 → 관리자 화면에서 CSV로 내려받아 백서 개선
-- 백서에 없는 질문이면 공식 채널(홈페이지·모집 공고·FAQ·AIVLE-EDU 1:1 문의) 버튼 표시
+- 좋아요/아쉬워요 평가 + 백서에 없는 질문 자동 수집 → 관리자 화면에서 CSV로 내려받아 백서 개선
+- 백서에 없는 질문이면 공식 채널(홈페이지·모집 공고·FAQ·AIVLE 1:1 문의) 버튼 표시
 - 개인 맞춤 학습 지원 탭 : 학습 계획 달력(구글 캘린더 파일 저장), 교안 PDF 학습 노트, 개념 퀴즈
 """
 import calendar
@@ -43,7 +43,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, Field
 
 pymupdf.set_messages(path=os.devnull)
-st.set_page_config(page_title="AIVLE School 학습 도우미", page_icon="🎓", layout="wide",
+st.set_page_config(page_title="AIVLE School 학습 도우미", page_icon=":material/school:", layout="wide",
                    initial_sidebar_state="expanded")
 st.logo("https://raw.githubusercontent.com/Jangrae/img/master/aivle.png", size="large")   # 강의 제공 투명 로고
 
@@ -74,11 +74,11 @@ MAX_FILE_CHARS = 3000                          # 채팅에 첨부한 텍스트 �
 ADMIN_PASSWORD = secret("ADMIN_PASSWORD", "admin1234")
 NOT_FOUND = "백서에서 확인되지 않아요"
 KST = timezone(timedelta(hours=9))
-OFFICIAL_LINKS = [                             # 백서 '참고자료'에 실린 공식 주소
-    ("공식 홈페이지", "https://aivle.kt.co.kr/", "🏠"),
-    ("모집 공고", "https://aivle.kt.co.kr/home/brd/bbs/listAtclMain?mcd=MC00000061&bbsCd=NOTICE", "📢"),
-    ("공식 FAQ", "https://aivle.kt.co.kr/home/brd/faq/main?mcd=MC00000056", "❓"),
-    ("AIVLE-EDU 1:1 문의", "https://aivle.edu.kt.co.kr", "💬"),
+OFFICIAL_LINKS = [                             # AIVLE School 공식 채널
+    ("공식 홈페이지", "https://aivle.kt.co.kr/", ":material/home:"),
+    ("모집 공고", "https://aivle.kt.co.kr/home/brd/bbs/listAtclMain?mcd=MC00000061&bbsCd=NOTICE", ":material/campaign:"),
+    ("공식 FAQ", "https://aivle.kt.co.kr/home/brd/faq/main?mcd=MC00000056", ":material/help:"),
+    ("AIVLE 1:1 문의", "https://aivle.kt.co.kr/home/brd/qna/main?mcd=MC00000057", ":material/forum:"),
 ]
 
 
@@ -240,16 +240,18 @@ AIVLE School을 먼저 경험한 선배이자 성장 코치로서, ① 백서에
 1. 첫 문장 : 질문에 대한 결론을 바로 말합니다(두괄식).
 2. 근거 설명 : [참고 문서]의 내용만 사용하고, 근거로 쓴 문장 끝에 [1], [2]처럼 참고 문서 번호를 붙입니다.
    두 가지 이상을 비교하거나 항목이 많으면 마크다운 표나 글머리표로 정리합니다. 표 앞뒤에는 빈 줄을 둡니다.
-3. 마지막 줄 : "🚀 도전 한 걸음:"으로 시작해, 질문자가 오늘이나 이번 주에 해 볼 구체적인 행동 하나를 제안합니다.
+3. 마지막 줄 : "도전 한 걸음:"으로 시작해, 질문자가 오늘이나 이번 주에 해 볼 구체적인 행동 하나를 제안합니다.
 
 [원칙]
 - 문서에 없는 내용은 추측하지 말고 정확히 "{not_found}."라고 쓴 뒤,
-  공식 홈페이지·모집 공고·AIVLE-EDU 1:1 문의에서 확인하도록 안내합니다. 이때도 도전 한 걸음은 제안합니다.
+  공식 홈페이지·모집 공고·AIVLE 1:1 문의에서 확인하도록 안내합니다. 이때도 도전 한 걸음은 제안합니다.
 - 지원 자격·일정·금액·출결·수료 기준은 기수마다 달라질 수 있으니 최신 모집 공고 확인을 한 줄로 덧붙입니다.
 - 수료생 후기는 '한 선배의 경험'으로 소개하고, 모든 사람에게 해당하는 사실처럼 단정하지 않습니다.
 - 망설임이나 걱정이 보이면 백서 근거(지원 제도, 학습 지원, 선배 경험)를 들어 따뜻하고 구체적으로 응원합니다.
   단, 합격·취업을 보장하는 표현은 쓰지 않습니다.
-- 존댓말로 군더더기 없이 답합니다. 이전 대화를 참고해 '그럼', '그건' 같은 후속 질문의 맥락을 이해합니다.
+- 존댓말로 군더더기 없이 답합니다. 이모지, 제목(#), 과한 굵은 글씨, "물론이죠!"·"좋은 질문이에요" 같은
+  상투적인 표현은 쓰지 않고, 상담 선배가 말하듯 담백하게 씁니다.
+- 이전 대화를 참고해 '그럼', '그건' 같은 후속 질문의 맥락을 이해합니다.
 - 에이블스쿨·학습과 관계없는 질문이면 도울 수 있는 범위를 짧게 알려 주고, 물어볼 만한 질문 하나를 제안합니다.
 
 [참고 문서]
@@ -688,16 +690,16 @@ for key, value in {"messages": [], "pending": None, "chain": None, "store": None
     ss.setdefault(key, value)
 
 RECOMMENDED = {
-    "🎯 지원 준비": ["비전공자도 커리큘럼을 따라갈 수 있을까요?",
+    "지원 준비": ["비전공자도 커리큘럼을 따라갈 수 있을까요?",
                   "AI 개발자 트랙과 DX 컨설턴트 트랙은 어떻게 달라요?",
                   "지원 전에 미리 공부해 두면 좋은 건 뭐예요?"],
-    "💳 지원금·제도": ["훈련장려금은 얼마나, 언제 받을 수 있나요?",
+    "지원금·제도": ["훈련장려금은 얼마나, 언제 받을 수 있나요?",
                    "국민내일배움카드는 꼭 있어야 하나요?",
                    "아르바이트를 하면서 교육을 들어도 되나요?"],
-    "📚 교육 생활": ["하루 수업 시간표는 어떻게 되나요?",
+    "교육 생활": ["하루 수업 시간표는 어떻게 되나요?",
                   "수료하려면 출석을 얼마나 해야 하나요?",
                   "진도를 놓쳤을 때는 뭐부터 해야 하나요?"],
-    "🚀 프로젝트·취업": ["팀 프로젝트 주제는 어떻게 정하면 좋을까요?",
+    "프로젝트·취업": ["팀 프로젝트 주제는 어떻게 정하면 좋을까요?",
                     "프로젝트 경험을 포트폴리오로 어떻게 정리하나요?",
                     "수료 후 취업 연계는 어떻게 도와주나요?"],
 }
@@ -748,7 +750,7 @@ def ensure_chain():
             ss.chain, ss.store, ss.n_chunks = build_assistant(v["path"], v["hash"])
         ss.document_name = v["hash"]
         if updated:
-            st.toast(f"백서가 {version_label(v)}(으)로 바뀌었어요", icon="📘")
+            st.toast(f"백서가 {version_label(v)}(으)로 바뀌었어요", icon=":material/menu_book:")
     return v
 
 
@@ -796,95 +798,179 @@ def chat_text():
 # ════════════════════════════════════════════════════════
 # 6. 화면
 # ════════════════════════════════════════════════════════
+CHALLENGE_RE = re.compile(r"\n*[ \t]*(?:🚀\s*)?(?:\*\*)?도전 한 걸음(?:\*\*)?\s*[:：]\s*(.+?)\s*$", re.S)
+AVATAR = {"user": ":material/person:", "assistant": ":material/school:"}
+
+
+def split_challenge(answer):
+    """답변 끝의 '도전 한 걸음'을 떼어 내 강조 박스로 보여 줌"""
+    m = CHALLENGE_RE.search(answer)
+    if not m:
+        return answer, ""
+    return answer[:m.start()].rstrip(), m[1].replace("**", "").strip()
+
+
 st.markdown("""
 <style>
-:root {--coral:#F2725E; --coral-soft:#FDE9E5; --mint:#2EC4A6; --mint-soft:#E3F7F2; --ink:#1F2937; --muted:#6B7280; --line:#E5E7EB;}
-.block-container {padding-top: 3.6rem;}
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+:root {--coral:#F2725E; --coral-dark:#D9573F; --coral-soft:#FDECE8; --coral-line:#F7CFC6;
+       --mint:#2EC4A6; --mint-dark:#13917A; --mint-soft:#E6F7F3; --mint-line:#BFE9DE;
+       --ink:#1F2937; --muted:#6B7280; --line:#E6EAEE; --paper:#F6FBFA;}
+html, body, p, li, label, input, textarea, button, h1, h2, h3, h4, h5, h6, td, th {
+  font-family:"Pretendard", "Source Sans Pro", -apple-system, sans-serif;}
+.block-container {padding-top:3.4rem;}
+section[data-testid="stSidebar"] {background:var(--paper); border-right:1px solid var(--line);}
+
+/* Streamlit 기본 빨강 → 코랄·민트 (config.toml이 없어도 적용) */
+button[data-testid="stBaseButton-primary"], button[data-testid="stBaseButton-primaryFormSubmit"] {
+  background:var(--coral) !important; border-color:var(--coral) !important; color:#FFFFFF !important;}
+button[data-testid="stBaseButton-primary"]:hover, button[data-testid="stBaseButton-primaryFormSubmit"]:hover {
+  background:var(--coral-dark) !important; border-color:var(--coral-dark) !important;}
+button[data-testid="stBaseButton-secondary"]:hover, a[data-testid^="stBaseLinkButton"]:hover {
+  border-color:var(--mint) !important; color:var(--mint-dark) !important;}
+div[data-testid="stButtonGroup"] button[aria-checked="true"] {background:var(--mint-soft) !important; border-color:var(--mint) !important;}
+div[data-testid="stButtonGroup"] button[aria-checked="true"] * {color:var(--mint-dark) !important;}
+div[data-testid="stTab"][aria-selected="true"], div[data-testid="stTab"][aria-selected="true"] * {color:var(--coral) !important;}
+div[data-testid="stTab"][aria-selected="true"] > div:not([data-testid]) {background:var(--coral) !important;}
+div[data-testid="stCheckbox"][data-selected="true"] label > div:not([data-testid]) {background:var(--mint) !important;}
+div[data-testid="stSlider"] div[role="group"] > div > div:first-child {filter:hue-rotate(8deg) saturate(.9);}
+div[data-testid="stSlider"] div[role="group"] > div > div:has(> div[data-testid="stSliderThumbValue"]) {background:var(--coral) !important;}
+div[data-testid="stSliderThumbValue"] p {color:var(--coral) !important;}
+div[data-testid="stMultiSelectTagsContainer"] span[data-tag] {background:var(--mint) !important;}
+div[data-testid="stChatInput"] > div {border-color:var(--mint-line) !important;}
+div[data-testid="stChatInput"] > div:focus-within {border-color:var(--coral) !important;}
+div[data-testid="stTextInputRootElement"]:focus-within {border-color:var(--mint) !important;}
+div[data-testid="stMarkdownContainer"] a {color:var(--mint-dark);}
+
+/* 머리말 */
 .app-head {display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;
-           border-bottom:2px solid var(--line); padding-bottom:12px; margin-bottom:6px;}
-.app-head h1 {font-size:1.65rem; margin:0; padding:0; color:var(--ink);}
+           padding-bottom:14px; margin-bottom:4px; border-bottom:1px solid var(--line);}
+.app-head .overline {font-size:.75rem; letter-spacing:.08em; color:var(--mint-dark); font-weight:700; margin-bottom:4px;}
+.app-head h1 {font-size:1.7rem; font-weight:800; margin:0; padding:0; color:var(--ink); letter-spacing:-.02em;}
 .app-head h1 .accent {color:var(--coral);}
-.app-head p {margin:4px 0 0 0; color:var(--muted); font-size:.95rem;}
+.app-head h1::after {content:""; display:block; width:44px; height:4px; border-radius:2px; margin-top:8px;
+                     background:linear-gradient(90deg, var(--coral) 50%, var(--mint) 50%);}
+.app-head p {margin:8px 0 0 0; color:var(--muted); font-size:.93rem;}
 .chips {display:flex; gap:6px; flex-wrap:wrap;}
-.chips span {font-size:.78rem; padding:4px 11px; border-radius:999px; background:var(--mint-soft);
-             color:#0F766E; border:1px solid #BFEDE2;}
-.chips span.coral {background:var(--coral-soft); color:#B4412F; border-color:#F8C8BE;}
-.panel-title {font-weight:700; color:var(--ink); margin:2px 0 6px 0; font-size:.95rem;}
-.welcome {background:linear-gradient(135deg, var(--mint-soft), #FFFFFF 70%); border:1px solid #CDEFE6;
-          border-left:4px solid var(--mint); border-radius:12px; padding:14px 16px; color:var(--ink);}
-.notice {background:var(--coral-soft); border:1px solid #F8C8BE; border-left:4px solid var(--coral);
-         border-radius:12px; padding:14px 16px; color:var(--ink);}
-.fn {font-size:.82rem; color:var(--muted); border-top:1px dashed var(--line); margin-top:10px; padding-top:8px; line-height:1.7;}
-.fn b {color:var(--coral);}
-.src-label {font-weight:600; font-size:.88rem; border-left:3px solid var(--mint); padding-left:8px; margin:10px 0 4px 0;}
-.metric-card {border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#FFFFFF;}
+.chips span {font-size:.76rem; padding:4px 11px; border-radius:999px; background:#FFFFFF; color:var(--ink); border:1px solid var(--line);}
+.chips span.mint {background:var(--mint-soft); color:var(--mint-dark); border-color:var(--mint-line);}
+.chips span.coral {background:var(--coral-soft); color:var(--coral-dark); border-color:var(--coral-line);}
+
+/* 사이드바 */
+.side-label {font-size:.75rem; font-weight:700; color:var(--muted); letter-spacing:.06em; margin:14px 0 6px 0;}
+.doc-card {background:#FFFFFF; border:1px solid var(--mint-line); border-left:4px solid var(--mint); border-radius:10px; padding:10px 12px;}
+.doc-card .name {font-weight:700; color:var(--ink); font-size:.92rem;}
+.doc-card .sub {font-size:.78rem; color:var(--muted); margin-top:2px;}
+.doc-card.empty {border-color:var(--coral-line); border-left-color:var(--coral);}
+.who {display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;}
+.role-badge {font-size:.72rem; padding:2px 9px; border-radius:999px; background:var(--mint-soft); color:var(--mint-dark);}
+.role-badge.admin {background:var(--coral-soft); color:var(--coral-dark);}
+
+/* 패널 */
+.panel-title {font-weight:700; color:var(--ink); font-size:.95rem; margin:0 0 8px 0; padding-left:9px; border-left:3px solid var(--coral);}
+.welcome {background:var(--mint-soft); border:1px solid var(--mint-line); border-radius:12px; padding:14px 16px; color:var(--ink); line-height:1.65;}
+.welcome .muted, .muted {color:var(--muted); font-size:.88rem;}
+.notice {background:var(--coral-soft); border:1px solid var(--coral-line); border-radius:12px; padding:14px 16px; color:var(--ink); line-height:1.65;}
+
+/* 대화 : 메신저형 말풍선 */
+div[data-testid="stElementContainer"]:has(.role-user), div[data-testid="stElementContainer"]:has(.role-bot) {display:none;}
+div[data-testid="stChatMessage"] {background:transparent !important; padding:2px 0 !important; gap:10px;}
+div[data-testid="stChatMessage"]:has(.role-user) {flex-direction:row-reverse;}
+div[data-testid="stChatMessage"]:has(.role-user) div[data-testid="stChatMessageContent"] {
+  flex:0 1 auto; max-width:78%; background:var(--coral-soft); border:1px solid var(--coral-line);
+  border-radius:16px 4px 16px 16px; padding:10px 14px;}
+div[data-testid="stChatMessage"]:has(.role-bot) div[data-testid="stChatMessageContent"] {
+  background:#FFFFFF; border:1px solid var(--line); border-left:3px solid var(--mint);
+  border-radius:4px 16px 16px 16px; padding:12px 16px;}
+.challenge {margin-top:10px; background:var(--coral-soft); border:1px solid var(--coral-line); border-radius:10px;
+            padding:10px 14px; color:var(--ink); line-height:1.6;}
+.challenge .label {font-size:.74rem; font-weight:800; color:var(--coral-dark); letter-spacing:.06em; margin-bottom:2px;}
+.fn {font-size:.8rem; color:var(--muted); margin-top:10px; padding-top:8px; border-top:1px dashed var(--line); line-height:1.75;}
+.fn .t {font-weight:700; color:var(--ink); font-size:.78rem; letter-spacing:.04em;}
+.fn b {color:var(--mint-dark);}
+.src-label {font-weight:700; font-size:.86rem; color:var(--ink); border-left:3px solid var(--mint); padding-left:8px; margin:12px 0 4px 0;}
+.ok {color:var(--mint-dark); font-weight:700;} .ng {color:var(--coral-dark); font-weight:700;}
+.badge-on {font-size:.72rem; padding:2px 8px; border-radius:999px; background:var(--mint-soft); color:var(--mint-dark); margin-left:6px;}
+
+/* 달력 */
 .cal-month {margin:8px 0 18px 0;}
 .cal-title {font-weight:700; color:var(--ink); margin-bottom:6px;}
 .cal-grid {display:grid; grid-template-columns:repeat(7, 1fr); gap:4px;}
-.cal-head {text-align:center; font-size:.78rem; color:var(--muted); padding:4px 0;}
+.cal-head {text-align:center; font-size:.76rem; color:var(--muted); padding:4px 0;}
 .cal-day {min-height:86px; border:1px solid var(--line); border-radius:8px; padding:4px; background:#FFFFFF; overflow:hidden;}
-.cal-day.out {background:#F9FAFB; opacity:.55;}
+.cal-day.out {background:#FAFBFB; opacity:.55;}
 .cal-day.today {border:2px solid var(--coral);}
-.cal-day .num {font-size:.75rem; color:var(--muted); margin-bottom:2px;}
-.chip {font-size:.72rem; line-height:1.3; border-radius:6px; padding:2px 5px; margin-bottom:2px; color:#FFFFFF;}
+.cal-day .num {font-size:.74rem; color:var(--muted); margin-bottom:2px;}
+.chip {font-size:.71rem; line-height:1.3; border-radius:6px; padding:2px 5px; margin-bottom:2px; color:#FFFFFF;}
 .chip.mint {background:var(--mint);} .chip.coral {background:var(--coral);}
-.chip.mint-soft {background:var(--mint-soft); color:#0F766E;} .chip.coral-soft {background:var(--coral-soft); color:#B4412F;}
+.chip.mint-soft {background:var(--mint-soft); color:var(--mint-dark);} .chip.coral-soft {background:var(--coral-soft); color:var(--coral-dark);}
 </style>
 """, unsafe_allow_html=True)
 
 version = active_version()
 has_key = bool(os.environ.get("OPENAI_API_KEY"))
+esc = html.escape
 
-# ── 사이드바 : 로그인 / 현재 문서 / 대화 관리 ──
+# ── 사이드바 : 계정 / 현재 백서 / 대화 ──
 with st.sidebar:
-    if not ss.logged_in:
-        with st.container(border=True):
-            st.markdown("**🔐 로그인**")
+    st.markdown('<div class="side-label">계정</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if not ss.logged_in:
             st.text_input("이름", key="login_name", placeholder="예: 에이블러")
             st.segmented_control("역할", ["사용자", "관리자"], default="사용자", key="login_role")
             if ss.get("login_role") == "관리자":
                 st.text_input("관리자 비밀번호", type="password", key="login_pw")
-            st.button("입장하기", type="primary", on_click=login, width="stretch")
+            st.button("입장하기", type="primary", icon=":material/login:", on_click=login, width="stretch")
             if ss.login_error:
                 st.error(ss.login_error)
             st.caption("로그인하지 않아도 게스트로 바로 질문할 수 있어요.")
-    else:
-        badge = "🛠️ 관리자" if is_admin() else "🙋 사용자"
-        with st.container(border=True):
-            st.markdown(f"**{ss.user['name']}** 님 · {badge}")
-            st.button("로그아웃", on_click=logout, width="stretch")
-
-    st.markdown('<div class="panel-title">📘 현재 백서</div>', unsafe_allow_html=True)
-    if version:
-        st.success(version_label(version), icon="📘")
-        if ss.document_name == version["hash"]:
-            st.caption(f"검색 단위 {ss.n_chunks}개 · 등록 {version['uploaded_at']}")
         else:
-            st.caption("문서를 준비하고 있어요…")
-    else:
-        st.warning("등록된 백서가 없어요", icon="📭")
+            role = "관리자" if is_admin() else "사용자"
+            st.markdown(f"<div class='who'><b>{esc(ss.user['name'])} 님</b>"
+                        f"<span class='role-badge {'admin' if is_admin() else ''}'>{role}</span></div>", unsafe_allow_html=True)
+            st.button("로그아웃", icon=":material/logout:", on_click=logout, width="stretch")
 
-    st.markdown('<div class="panel-title">💬 대화 관리</div>', unsafe_allow_html=True)
+    st.markdown('<div class="side-label">현재 백서</div>', unsafe_allow_html=True)
+    if version:
+        sub = (f"검색 단위 {ss.n_chunks}개 · {esc(version['uploaded_at'])}" if ss.document_name == version["hash"]
+               else "문서를 준비하고 있어요…")
+        st.markdown(f"<div class='doc-card'><div class='name'>{esc(version_label(version))}</div>"
+                    f"<div class='sub'>{sub}</div></div>", unsafe_allow_html=True)
+    else:
+        st.markdown("<div class='doc-card empty'><div class='name'>등록된 백서가 없어요</div>"
+                    "<div class='sub'>관리자가 백서를 등록하면 질문할 수 있어요.</div></div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="side-label">대화</div>', unsafe_allow_html=True)
     show_sources = st.toggle("근거 원문 함께 보기", value=False)
     c1, c2 = st.columns(2)
-    c1.button("대화 삭제", icon="🗑️", on_click=clear_chat, width="stretch", disabled=not ss.messages)
+    c1.button("대화 삭제", icon=":material/delete:", on_click=clear_chat, width="stretch", disabled=not ss.messages)
     c2.download_button("대화 저장", data=chat_text(), file_name=f"aivle_chat_{datetime.now(KST):%Y%m%d_%H%M}.txt",
-                       icon="💾", mime="text/plain", width="stretch", disabled=not ss.messages)
+                       icon=":material/download:", mime="text/plain", width="stretch", disabled=not ss.messages)
     st.caption("답변은 관리자가 등록한 AIVLE School 백서를 근거로 합니다. "
                "모집 조건·일정은 기수마다 달라질 수 있으니 공식 모집 공고를 꼭 확인하세요.")
 
 # ── 머리말 ──
 n_q = sum(m["role"] == "user" for m in ss.messages)
-chips = [f"<span>📘 {html.escape(version_label(version)) if version else '백서 미등록'}</span>",
-         f"<span>💬 질문 {n_q}개</span>",
-         f"<span class='coral'>{'🛠️ 관리자' if is_admin() else '🙋 ' + html.escape(ss.user['name'])}</span>"]
+chips = [f"<span class='mint'>{esc(version_label(version)) if version else '백서 미등록'}</span>",
+         f"<span>질문 {n_q}개</span>",
+         f"<span class='coral'>{'관리자' if is_admin() else esc(ss.user['name'])}</span>"]
 st.markdown(
-    "<div class='app-head'><div><h1>🎓 AIVLE School <span class='accent'>학습 도우미</span></h1>"
-    "<p>백서에 근거한 정확한 답변과, 에이블스쿨에서 성장하기 위한 다음 도전을 함께 제안해요.</p></div>"
+    "<div class='app-head'><div><div class='overline'>KT AIVLE SCHOOL · 백서 기반 학습 도우미</div>"
+    "<h1>AIVLE School <span class='accent'>학습 도우미</span></h1>"
+    "<p>백서에 근거해 정확하게 답하고, 에이블스쿨에서 성장하기 위한 다음 도전을 함께 제안합니다.</p></div>"
     f"<div class='chips'>{''.join(chips)}</div></div>", unsafe_allow_html=True)
 
-tab_names = ["💬 학습 도우미", "📅 개인 맞춤 학습 지원"] + (["🛠️ 관리자"] if is_admin() else [])
+tab_names = [":material/forum: 학습 도우미", ":material/event_note: 개인 맞춤 학습 지원"] + \
+            ([":material/admin_panel_settings: 관리자"] if is_admin() else [])
 tabs = st.tabs(tab_names)
+
+
+def render_answer(content):
+    body, challenge = split_challenge(content)
+    st.markdown(fix_markdown(body))
+    if challenge:
+        st.markdown(f"<div class='challenge'><div class='label'>도전 한 걸음</div>{esc(challenge)}</div>",
+                    unsafe_allow_html=True)
 
 
 def render_assistant_extras(m):
@@ -893,21 +979,26 @@ def render_assistant_extras(m):
     cited = cited_numbers(m["content"], len(sources))
     shown = [s for s in sources if s["n"] in cited] or ([] if m.get("not_found") else sources)
     if shown:
-        title = "📎 각주 (답변에 쓰인 자료)" if cited else "📎 참고한 자료"
-        items = "<br>".join(f"<b>[{s['n']}]</b> {html.escape(s['label'])}" for s in shown)
-        st.markdown(f"<div class='fn'>{title}<br>{items}</div>", unsafe_allow_html=True)
+        title = "각주" if cited else "참고한 자료"
+        items = "".join(f"<div><b>[{s['n']}]</b> {esc(s['label'])}</div>" for s in shown)
+        st.markdown(f"<div class='fn'><div class='t'>{title}</div>{items}</div>", unsafe_allow_html=True)
     if m.get("not_found"):
-        st.caption("백서에 없는 내용이에요. 공식 채널에서 확인해 보세요.")
+        st.caption("백서에 없는 내용이에요. 아래 공식 채널에서 확인해 보세요.")
         cols = st.columns(len(OFFICIAL_LINKS))
         for col, (label, url, icon) in zip(cols, OFFICIAL_LINKS):
-            col.link_button(label.replace("AIVLE-EDU ", ""), url, icon=icon, width="stretch")
+            col.link_button(label.replace("공식 홈페이지", "홈페이지").replace("AIVLE ", ""), url, icon=icon, width="stretch")
     if show_sources and sources:
-        with st.expander(f"🔍 근거 원문 {len(sources)}개"):
+        with st.expander(f"근거 원문 {len(sources)}개", icon=":material/manage_search:"):
             for s in sources:
-                st.markdown(f"<div class='src-label'>[{s['n']}] {html.escape(s['label'])}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='src-label'>[{s['n']}] {esc(s['label'])}</div>", unsafe_allow_html=True)
                 st.markdown(fix_markdown(s["text"]))
     if m.get("id"):
         st.feedback("thumbs", key=f"fb_{m['id']}", on_change=on_feedback, args=(m["id"],))
+
+
+def role_marker(role):
+    """말풍선 모양(내 질문 = 오른쪽 코랄, 답변 = 민트 카드)을 CSS로 구분하기 위한 표시"""
+    st.markdown(f"<span class='role-{'user' if role == 'user' else 'bot'}'></span>", unsafe_allow_html=True)
 
 
 # ── 탭 1 : 학습 도우미 채팅 ──
@@ -919,53 +1010,53 @@ with tabs[0]:
         with box:
             if not ss.messages:
                 if not has_key:
-                    st.markdown("<div class='notice'>🔑 OpenAI API 키가 설정되지 않았어요. 관리자에게 앱 Secrets 설정을 요청해 주세요.</div>",
-                                unsafe_allow_html=True)
+                    st.markdown("<div class='notice'><b>OpenAI API 키가 설정되지 않았어요.</b><br>"
+                                "관리자에게 앱 Secrets 설정을 요청해 주세요.</div>", unsafe_allow_html=True)
                 elif version is None:
-                    msg = ("📭 <b>아직 학습 도우미가 참고할 백서가 등록되지 않았어요.</b><br>"
-                           + ("'🛠️ 관리자' 탭에서 AIVLE School 백서 PDF를 업로드하면 바로 대화를 시작할 수 있어요."
+                    msg = ("<b>아직 학습 도우미가 참고할 백서가 등록되지 않았어요.</b><br>"
+                           + ("'관리자' 탭에서 AIVLE School 백서 PDF를 업로드하면 바로 대화를 시작할 수 있어요."
                               if is_admin() else "관리자에게 백서 업로드를 요청해 주세요. 백서가 등록되면 바로 질문할 수 있어요."))
                     st.markdown(f"<div class='notice'>{msg}</div>", unsafe_allow_html=True)
                 else:
                     st.markdown(
-                        f"<div class='welcome'>👋 <b>{html.escape(ss.user['name'])}님, 반가워요!</b><br>"
-                        "지원 준비부터 교육 생활, 프로젝트와 취업까지 백서를 근거로 답해 드려요.<br>"
-                        "⌨️ 직접 입력하거나, 🎙️ 음성으로 묻거나, 📎 질문이 담긴 텍스트 파일(.txt)을 첨부해 보세요.</div>",
+                        f"<div class='welcome'><b>안녕하세요, {esc(ss.user['name'])}님.</b><br>"
+                        "AIVLE School 백서를 바탕으로 지원 준비, 교육 생활, 프로젝트와 취업 질문에 답해 드려요.<br>"
+                        "<span class='muted'>입력창에서 직접 묻거나, 마이크로 녹음하거나, 질문이 담긴 .txt 파일을 첨부할 수 있어요.</span></div>",
                         unsafe_allow_html=True)
             for m in ss.messages:
-                with st.chat_message(m["role"], avatar="🙋" if m["role"] == "user" else "🎓"):
+                with st.chat_message(m["role"], avatar=AVATAR[m["role"]]):
+                    role_marker(m["role"])
                     if m["role"] == "user":
                         st.markdown(m.get("display") or m["content"])
                         if m.get("kind") == "voice":
-                            st.caption("🎙️ 음성으로 질문했어요")
+                            st.caption("음성으로 질문")
                         elif m.get("kind") == "file":
-                            st.caption(f"📎 {m['file']} 첨부")
+                            st.caption(f"첨부 파일 · {m['file']}")
                     else:
-                        st.markdown(fix_markdown(m["content"]))
+                        render_answer(m["content"])
                         render_assistant_extras(m)
         ready_to_chat = has_key and version is not None
         submission = st.chat_input(
-            "에이블스쿨에 대해 무엇이든 물어보세요 (🎙️ 음성 · 📎 .txt 파일 가능)" if ready_to_chat
-            else "백서가 등록되면 질문할 수 있어요",
+            "질문을 입력하세요 · 음성 녹음과 .txt 파일 첨부도 가능해요" if ready_to_chat else "백서가 등록되면 질문할 수 있어요",
             accept_file=True, file_type=["txt", "md"], accept_audio=True, disabled=not ready_to_chat)
 
     with col_side:
         with st.container(border=True):
-            st.markdown('<div class="panel-title">💡 추천 질문</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-title">추천 질문</div>', unsafe_allow_html=True)
             group = st.pills("분야", list(RECOMMENDED), default=list(RECOMMENDED)[0], required=True,
                              key="rec_group", label_visibility="collapsed")
             for q in RECOMMENDED.get(group or list(RECOMMENDED)[0], []):
                 st.button(q, key=f"rec_{q}", on_click=ask, args=(q,), width="stretch", disabled=not ready_to_chat)
         with st.container(border=True):
-            st.markdown('<div class="panel-title">🔗 공식 채널</div>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-title">공식 채널</div>', unsafe_allow_html=True)
             for label, url, icon in OFFICIAL_LINKS:
                 st.link_button(label, url, icon=icon, width="stretch", type="tertiary")
 
 # ── 탭 2 : 개인 맞춤 학습 지원 ──
 with tabs[1]:
-    st.markdown("##### 나에게 맞춘 학습 계획 · 학습 노트 · 개념 퀴즈")
+    st.markdown('<div class="panel-title">나에게 맞춘 학습 계획 · 학습 노트 · 개념 퀴즈</div>', unsafe_allow_html=True)
     with st.container(border=True):
-        material = st.file_uploader("📂 내 교안 PDF (학습 노트·퀴즈에 사용, 선택)", type=["pdf"], key="material_pdf")
+        material = st.file_uploader("내 교안 PDF (학습 노트·퀴즈에 사용, 선택)", type=["pdf"], key="material_pdf")
         if material is not None:
             digest = hashlib.md5(material.getvalue()).hexdigest()[:12]
             if not ss.material or ss.material["hash"] != digest:
@@ -979,7 +1070,8 @@ with tabs[1]:
             ss.material = None
         st.caption(f"현재 교안: **{ss.material['name']}**" if ss.material else "교안을 올리지 않으면 백서를 자료로 사용해요.")
 
-    t_plan, t_note, t_quiz = st.tabs(["🗓️ 학습 계획 달력", "📝 학습 노트 자동 정리", "🧩 개념 퀴즈"])
+    t_plan, t_note, t_quiz = st.tabs([":material/calendar_month: 학습 계획 달력", ":material/edit_note: 학습 노트 자동 정리",
+                                      ":material/quiz: 개념 퀴즈"])
 
     with t_plan:
         with st.form("plan_form"):
@@ -993,7 +1085,7 @@ with tabs[1]:
             weak = st.multiselect("보완하고 싶은 부분", ["Python 기초", "데이터 분석(Pandas)", "시각화", "머신러닝",
                                                      "딥러닝", "생성형 AI·LLM", "클라우드", "문제 정의·기획", "발표·문서 작성"])
             rest = st.multiselect("쉬는 요일", WEEKDAYS, default=["일"])
-            make = st.form_submit_button("📅 학습 계획 만들기", type="primary", disabled=not has_key)
+            make = st.form_submit_button("학습 계획 만들기", type="primary", icon=":material/event_available:", disabled=not has_key)
         if make:
             dates = study_dates(start, weeks, rest)
             if not dates:
@@ -1013,23 +1105,24 @@ with tabs[1]:
                         st.error(f"계획을 만들지 못했어요: {e}")
         if ss.plan:
             plan = ss.plan
-            st.markdown(f"<div class='welcome'>🗓️ {html.escape(plan['summary'])}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='welcome'>{esc(plan['summary'])}</div>", unsafe_allow_html=True)
             st.markdown(calendar_html(plan["events"], date.fromisoformat(plan["start"]), date.fromisoformat(plan["end"])),
                         unsafe_allow_html=True)
             table = pd.DataFrame([{"날짜": e["date"], "요일": WEEKDAYS[date.fromisoformat(e["date"]).weekday()],
                                    "분류": e["category"], "일정": e["title"], "할 일": e["detail"]} for e in plan["events"]])
             st.dataframe(table, hide_index=True, width="stretch")
             d1, d2 = st.columns(2)
-            d1.download_button("📆 구글 캘린더용 파일(.ics)", plan_to_ics(plan["events"]), file_name="aivle_study_plan.ics",
-                               mime="text/calendar", width="stretch")
-            d2.download_button("📄 표로 저장(.csv)", table.to_csv(index=False).encode("utf-8-sig"),
-                               file_name="aivle_study_plan.csv", mime="text/csv", width="stretch")
+            d1.download_button("구글 캘린더용 파일(.ics)", plan_to_ics(plan["events"]), file_name="aivle_study_plan.ics",
+                               mime="text/calendar", icon=":material/calendar_add_on:", width="stretch")
+            d2.download_button("표로 저장(.csv)", table.to_csv(index=False).encode("utf-8-sig"),
+                               file_name="aivle_study_plan.csv", mime="text/csv", icon=":material/table_view:", width="stretch")
             st.caption("구글 캘린더 → 설정 → 가져오기에서 .ics 파일을 올리면 일정이 한 번에 등록돼요.")
 
     with t_note:
         src = "교안" if ss.material else "백서"
         st.caption(f"자료: **{ss.material['name'] if ss.material else '현재 백서'}** — 핵심 개념, 스스로 점검할 질문, 다음 할 일을 정리해요.")
-        if st.button("📝 학습 노트 만들기", type="primary", disabled=not has_key or (src == "백서" and version is None)):
+        if st.button("학습 노트 만들기", type="primary", icon=":material/description:",
+                     disabled=not has_key or (src == "백서" and version is None)):
             with st.spinner("자료를 읽고 학습 노트를 정리하고 있어요…"):
                 try:
                     if ss.material:
@@ -1043,9 +1136,9 @@ with tabs[1]:
         if ss.note:
             note = ss.note
             st.markdown(f"#### {note['title']}")
-            st.markdown("<div class='welcome'>" + "<br>".join(f"✔️ {html.escape(s)}" for s in note["summary"]) + "</div>",
+            st.markdown("<div class='welcome'>" + "<br>".join(f"· {esc(s)}" for s in note["summary"]) + "</div>",
                         unsafe_allow_html=True)
-            st.markdown("**🔑 핵심 개념**")
+            st.markdown('<div class="panel-title" style="margin-top:14px">핵심 개념</div>', unsafe_allow_html=True)
             cols = st.columns(2)
             for i, c in enumerate(note["concepts"]):
                 with cols[i % 2].container(border=True):
@@ -1053,22 +1146,23 @@ with tabs[1]:
                     st.write(c["explanation"])
             q1, q2 = st.columns(2)
             with q1:
-                st.markdown("**❓ 스스로 점검할 질문**")
+                st.markdown('<div class="panel-title">스스로 점검할 질문</div>', unsafe_allow_html=True)
                 for q in note["questions"]:
                     st.markdown(f"- {q}")
             with q2:
-                st.markdown("**✅ 다음 할 일**")
+                st.markdown('<div class="panel-title">다음 할 일</div>', unsafe_allow_html=True)
                 for i, a in enumerate(note["next_actions"]):
                     st.checkbox(a, key=f"todo_{i}_{a[:20]}")
-            st.download_button("💾 학습 노트 저장(.md)", note_markdown(note, note["source"]), file_name="aivle_study_note.md",
-                               mime="text/markdown")
+            st.download_button("학습 노트 저장(.md)", note_markdown(note, note["source"]), file_name="aivle_study_note.md",
+                               mime="text/markdown", icon=":material/download:")
 
     with t_quiz:
         q1, q2, q3 = st.columns([2, 1, 1])
         topic = q1.text_input("주제 (비우면 자료 전체에서 골고루)", placeholder="예: 훈련장려금, 결측치 처리")
         n_items = q2.select_slider("문항 수", options=[3, 5, 7, 10], value=5)
         level = q3.segmented_control("난이도", ["기초", "보통", "도전"], default="보통")
-        if st.button("🧩 퀴즈 만들기", type="primary", disabled=not has_key or (not ss.material and version is None)):
+        if st.button("퀴즈 만들기", type="primary", icon=":material/quiz:",
+                     disabled=not has_key or (not ss.material and version is None)):
             with st.spinner("자료에서 확인 문제를 만들고 있어요…"):
                 try:
                     if ss.material:
@@ -1091,7 +1185,7 @@ with tabs[1]:
             with st.form(f"quiz_form_{ss.quiz_id}"):
                 for i, item in enumerate(ss.quiz, start=1):
                     st.radio(f"**Q{i}. {item['question']}**", item["options"], index=None, key=f"quiz_{ss.quiz_id}_{i}")
-                graded = st.form_submit_button("채점하기", type="primary")
+                graded = st.form_submit_button("채점하기", type="primary", icon=":material/fact_check:")
             if graded:
                 ss.quiz_graded = True
             if ss.quiz_graded:
@@ -1102,23 +1196,25 @@ with tabs[1]:
                     ok = picked == right
                     score += ok
                     with st.container(border=True):
-                        st.markdown(f"{'✅' if ok else '❌'} **Q{i}.** 정답: **{right}**" + ("" if ok else f" (내 답: {picked or '선택 안 함'})"))
+                        mark = "<span class='ok'>정답</span>" if ok else "<span class='ng'>오답</span>"
+                        mine = "" if ok else f" · 내 답: {esc(picked or '선택 안 함')}"
+                        st.markdown(f"{mark} &nbsp;Q{i}. 정답은 <b>{esc(right)}</b>{mine}", unsafe_allow_html=True)
                         st.caption(f"{item['explanation']}  ·  근거: {item['source']}")
                 st.metric("점수", f"{score} / {len(ss.quiz)}")
-                if score == len(ss.quiz):
-                    st.balloons()
 
 # ── 탭 3 : 관리자 ──
 if is_admin():
     with tabs[2]:
         if ADMIN_PASSWORD == "admin1234":
-            st.warning("기본 관리자 비밀번호를 쓰고 있어요. Streamlit Cloud 앱 Settings → Secrets에 ADMIN_PASSWORD를 설정하세요.", icon="🔒")
+            st.warning("기본 관리자 비밀번호를 쓰고 있어요. Streamlit Cloud 앱 Settings → Secrets에 ADMIN_PASSWORD를 설정하세요.",
+                       icon=":material/lock:")
         a1, a2 = st.columns([1, 1.3], gap="large")
         with a1:
-            st.markdown("#### 📚 백서 관리")
+            st.markdown('<div class="panel-title">백서 관리</div>', unsafe_allow_html=True)
             with st.container(border=True):
                 new_pdf = st.file_uploader("새 백서 PDF 업로드 (자동 벡터화 후 모든 사용자에게 적용)", type=["pdf"], key="admin_pdf")
-                if new_pdf is not None and st.button("이 파일을 현재 백서로 등록", type="primary", width="stretch"):
+                if new_pdf is not None and st.button("이 파일을 현재 백서로 등록", type="primary", icon=":material/upload:",
+                                                     width="stretch"):
                     digest = register_version(new_pdf.getvalue(), new_pdf.name, ss.user["name"])
                     v = next(x for x in versions() if x["hash"] == digest)
                     try:
@@ -1127,11 +1223,12 @@ if is_admin():
                         st.rerun()                      # 모든 사용자에게 새 버전 적용 (화면에 '백서가 바뀌었어요' 알림)
                     except Exception as e:
                         st.error(f"벡터화에 실패했어요: {e}")
-            st.markdown("**버전 기록**")
-            for i, v in enumerate(reversed(versions())):
+            st.markdown('<div class="panel-title" style="margin-top:14px">버전 기록</div>', unsafe_allow_html=True)
+            for v in reversed(versions()):
                 with st.container(border=True):
                     is_active = version is not None and v["hash"] == version["hash"]
-                    st.markdown(f"**{version_label(v)}**" + ("  🟢 사용 중" if is_active else ""))
+                    st.markdown(f"<b>{esc(version_label(v))}</b>" + ("<span class='badge-on'>사용 중</span>" if is_active else ""),
+                                unsafe_allow_html=True)
                     st.caption(f"{v['uploaded_at']} · {v['uploaded_by']}")
                     if not is_active:
                         st.button("이 버전으로 변경", key=f"use_{v['hash']}", on_click=set_active, args=(v["hash"],))
@@ -1139,29 +1236,30 @@ if is_admin():
                 st.info("아직 등록된 백서가 없어요. 위에서 PDF를 올려 주세요.")
 
         with a2:
-            st.markdown("#### 📈 질문 · 평가 현황")
+            st.markdown('<div class="panel-title">질문 · 평가 현황</div>', unsafe_allow_html=True)
             logs = shared()["logs"]
             df = pd.DataFrame(logs) if logs else pd.DataFrame(
                 columns=["id", "time", "user", "question", "input", "answer", "not_found", "rating", "sources", "doc"])
             need = df[(df["rating"] == "👎") | (df["not_found"] == True)] if len(df) else df  # noqa: E712
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("전체 질문", len(df))
-            m2.metric("👍", int((df["rating"] == "👍").sum()) if len(df) else 0)
-            m3.metric("👎", int((df["rating"] == "👎").sum()) if len(df) else 0)
+            m2.metric("좋아요", int((df["rating"] == "👍").sum()) if len(df) else 0)
+            m3.metric("아쉬워요", int((df["rating"] == "👎").sum()) if len(df) else 0)
             m4.metric("백서 미확인", int(df["not_found"].sum()) if len(df) else 0)
-            st.markdown("**🛠️ 백서 개선이 필요한 질문** (👎 또는 백서에 없는 질문)")
+            st.markdown("**백서 개선이 필요한 질문** <span class='muted'>(아쉬워요 평가 또는 백서에 없는 질문)</span>",
+                        unsafe_allow_html=True)
             if len(need):
-                view = need.assign(사유=need.apply(lambda r: "👎 평가" if r["rating"] == "👎" else "백서에 없음", axis=1))
+                view = need.assign(사유=need.apply(lambda r: "아쉬워요 평가" if r["rating"] == "👎" else "백서에 없음", axis=1))
                 st.dataframe(view[["time", "user", "사유", "question", "answer"]].rename(
                     columns={"time": "시간", "user": "사용자", "question": "질문", "answer": "답변"}), hide_index=True, width="stretch")
             else:
                 st.caption("아직 개선이 필요한 질문이 없어요.")
             e1, e2 = st.columns(2)
-            e1.download_button("⬇️ 개선 필요 질문 CSV", need.to_csv(index=False).encode("utf-8-sig"),
+            e1.download_button("개선 필요 질문 CSV", need.to_csv(index=False).encode("utf-8-sig"), icon=":material/download:",
                                file_name="aivle_improve_questions.csv", mime="text/csv", width="stretch", disabled=not len(need))
-            e2.download_button("⬇️ 전체 질문 기록 CSV", df.to_csv(index=False).encode("utf-8-sig"),
+            e2.download_button("전체 질문 기록 CSV", df.to_csv(index=False).encode("utf-8-sig"), icon=":material/download:",
                                file_name="aivle_all_questions.csv", mime="text/csv", width="stretch", disabled=not len(df))
-            st.markdown("<div class='welcome'>🔁 <b>백서 개선 루프</b><br>① 개선 필요 질문 CSV 내려받기 → ② 백서에 답변 보완 → "
+            st.markdown("<div class='welcome'><b>백서 개선 루프</b><br>① 개선 필요 질문 CSV 내려받기 → ② 백서에 답변 보완 → "
                         "③ 왼쪽에서 새 버전 업로드 → ④ 같은 질문으로 다시 확인</div>", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════
@@ -1182,9 +1280,11 @@ if question and ready_to_chat:
     history = to_history(ss.messages)
     ss.messages.append({"role": "user", "content": question, **meta})
     with box:
-        with st.chat_message("user", avatar="🙋"):
+        with st.chat_message("user", avatar=AVATAR["user"]):
+            role_marker("user")
             st.markdown(meta.get("display") or question)
-        with st.chat_message("assistant", avatar="🎓"):
+        with st.chat_message("assistant", avatar=AVATAR["assistant"]):
+            role_marker("assistant")
             mid = uuid.uuid4().hex[:10]
             try:
                 docs = ss.store.similarity_search(make_search_query({"question": question, "history": history}), k=TOP_K)
@@ -1192,7 +1292,7 @@ if question and ready_to_chat:
                 sources = [{"n": i, "label": d.metadata.get("source_label", ""), "text": d.page_content.split("\n", 1)[-1]}
                            for i, d in enumerate(docs, start=1)]
             except Exception as e:
-                answer, sources = f"⚠️ 답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요. ({e})", []
+                answer, sources = f"답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요. ({e})", []
                 st.markdown(answer)
     not_found = NOT_FOUND in answer
     ss.messages.append({"role": "assistant", "content": answer, "sources": sources, "id": mid,

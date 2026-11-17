@@ -64,7 +64,7 @@ if secret("OPENAI_API_KEY"):
 # ── 설정 ───────────────────────────────────────────────
 DEFAULT_PDF = "AIVLE School 백서.pdf"          # GitHub 저장소에 함께 올린 기본 백서
 DATA_DIR = "app_data"                          # 관리자가 올린 백서·질문 기록 (앱이 재시작되면 초기화될 수 있음)
-CHROMA_DIR = "chroma_db"
+CHROMA_DIR = os.path.join(tempfile.gettempdir(), "aivle_chroma")   # 저장소의 chroma_db와 분리 → 재배포 때 덮어써지지 않음
 EMBED_MODEL = "text-embedding-3-small"
 LLM_MODEL = "gpt-4o-mini"
 STT_MODELS = ("gpt-4o-mini-transcribe", "whisper-1")   # 음성 인식 모델 (앞의 것이 실패하면 다음 것)
@@ -445,7 +445,7 @@ def update_log(entry_id, **fields):
 #   ② st.cache_resource      : 같은 문서를 여러 사용자가 열어도 rag_pipeline()은 문서당 한 번만 실행
 @st.cache_resource(show_spinner=False)
 def build_assistant(pdf_path, digest):
-    collection = f"doc_{digest}"
+    collection = f"doc_{digest}_{uuid.uuid4().hex[:6]}"   # 빌드마다 새 이름 : 다른 사용자가 쓰던 컬렉션을 지우지 않음
     chain = rag_pipeline(pdf_path, collection)
     store = Chroma(collection_name=collection, embedding_function=OpenAIEmbeddings(model=EMBED_MODEL),
                    persist_directory=CHROMA_DIR)
@@ -735,6 +735,47 @@ RECOMMENDED = {
 }
 
 
+# 이스터에그 : 머리말의 'AIVLE School'을 누르면 나오는 명언 (출전이 분명한 것만 골라 실제로 하지 않은 말을 지어내지 않음)
+QUOTES = [
+    {"text": "천 리 길도 한 걸음에서 시작된다.", "who": "노자", "src": "『도덕경』 64장",
+     "note": "지원서의 첫 문장, 오늘 듣는 강의 한 편이 바로 그 한 걸음이에요."},
+    {"text": "반걸음이라도 쌓지 않으면 천 리에 이를 수 없다.", "who": "순자", "src": "『순자』 권학편",
+     "note": "매일 쌓은 작은 복습이 수료와 취업까지 데려다줘요."},
+    {"text": "푸른 물감은 쪽에서 나왔지만 쪽보다 더 푸르다.", "who": "순자", "src": "『순자』 권학편",
+     "note": "선배들이 남긴 경험을 딛고, 선배보다 더 멀리 가 보세요."},
+    {"text": "배우고 때때로 익히면 또한 기쁘지 아니한가.", "who": "공자", "src": "『논어』 학이편",
+     "note": "배운 것을 실습으로 다시 익히는 순간, 지식이 진짜 내 것이 돼요."},
+    {"text": "아는 것을 안다고 하고 모르는 것을 모른다고 하는 것, 이것이 아는 것이다.", "who": "공자", "src": "『논어』 위정편",
+     "note": "모르는 것을 질문하는 용기가 가장 빠른 성장 비결이에요."},
+    {"text": "아는 사람은 좋아하는 사람만 못하고, 좋아하는 사람은 즐기는 사람만 못하다.", "who": "공자", "src": "『논어』 옹야편",
+     "note": "AI와 데이터를 즐기는 사람이 결국 끝까지 갑니다."},
+    {"text": "잘못하고도 고치지 않는 것, 이것을 잘못이라 한다.", "who": "공자", "src": "『논어』 위령공편",
+     "note": "실수는 괜찮아요. 회고로 고치면 그게 바로 성장이에요."},
+    {"text": "하늘이 큰 일을 맡기려 할 때는 반드시 먼저 그 마음과 뜻을 괴롭게 한다.", "who": "맹자", "src": "『맹자』 고자 하",
+     "note": "지금 막히는 코드와 과제는 더 큰 역할을 위한 준비 운동이에요."},
+    {"text": "신에게는 아직 열두 척의 배가 남아 있사옵니다.", "who": "이순신", "src": "1597년 조정에 올린 장계",
+     "note": "비전공자라도 괜찮아요. 지금 가진 것으로 충분히 시작할 수 있어요."},
+    {"text": "하루라도 책을 읽지 않으면 입안에 가시가 돋는다.", "who": "안중근", "src": "1910년 뤼순 감옥에서 쓴 유묵",
+     "note": "하루 한 강의라도 끊기지 않게 이어 가는 것이 실력이 돼요."},
+    {"text": "아는 것만으로는 부족하다, 적용해야 한다. 원하는 것만으로는 부족하다, 실행해야 한다.", "who": "괴테",
+     "src": "『빌헬름 마이스터의 편력시대』", "note": "에이블스쿨은 배운 것을 프로젝트로 직접 적용해 보는 곳이에요."},
+    {"text": "내가 더 멀리 보았다면, 그것은 거인들의 어깨 위에 서 있었기 때문이다.", "who": "아이작 뉴턴",
+     "src": "1675년 로버트 훅에게 보낸 편지", "note": "먼저 걸어간 선배들과 이 백서가 여러분의 어깨가 되어 줄 거예요."},
+    {"text": "천재는 1퍼센트의 영감과 99퍼센트의 노력으로 이루어진다.", "who": "토머스 에디슨", "src": "발명가",
+     "note": "재능보다 꾸준함이에요. 오늘의 노력이 99퍼센트를 채워요."},
+    {"text": "사람은 이미 해낸 일은 잘 알아차리지 못하고, 앞으로 해야 할 일만 본다.", "who": "마리 퀴리",
+     "src": "1894년 오빠에게 보낸 편지", "note": "가끔은 지금까지 해낸 것도 돌아봐 주세요. 생각보다 많이 왔어요."},
+    {"text": "우리는 앞을 아주 조금밖에 내다볼 수 없지만, 그 안에서도 해야 할 일이 많다는 것은 충분히 알 수 있다.",
+     "who": "앨런 튜링", "src": "1950년 논문 「계산 기계와 지능」", "note": "AI의 미래를 다 알 필요는 없어요. 지금 할 수 있는 일부터 시작해요."},
+    {"text": "가장 위험한 말은 '우리는 늘 이렇게 해 왔다'이다.", "who": "그레이스 호퍼", "src": "컴퓨터 과학자",
+     "note": "DX는 '원래 그렇게 하던 것'에 질문을 던지는 데서 시작돼요."},
+    {"text": "상상력은 지식보다 중요하다.", "who": "알베르트 아인슈타인", "src": "1929년 인터뷰",
+     "note": "문제 정의서 한 장에 여러분만의 상상력을 담아 보세요."},
+    {"text": "늘 갈망하라, 우직하게 나아가라. (Stay hungry, stay foolish.)", "who": "스티브 잡스",
+     "src": "2005년 스탠퍼드대 졸업 연설", "note": "배움에 목마른 마음 하나면 에이블스쿨에서 충분히 성장할 수 있어요."},
+]
+
+
 def is_admin():
     return ss.logged_in and ss.user["role"] == "admin"
 
@@ -769,19 +810,62 @@ def on_feedback(mid):
     update_log(mid, rating=rating)
 
 
-def ensure_chain():
-    """현재 활성 백서의 체인을 session_state에 준비 (문서가 바뀔 때만 다시 준비)"""
+def ensure_chain(force=False):
+    """현재 활성 백서의 체인을 session_state에 준비 (문서가 바뀔 때만 다시 준비, force=True면 다시 벡터화)"""
     v = active_version()
     if v is None:
         return None
-    if ss.chain is None or ss.document_name != v["hash"]:
-        updated = ss.document_name is not None
-        with st.spinner(f"'{v['name']}' 문서를 처리하고 있어요… (문서마다 처음 한 번만 걸려요)"):
+    if force:
+        build_assistant.clear()
+    if force or ss.chain is None or ss.document_name != v["hash"]:
+        changed = ss.document_name is not None and ss.document_name != v["hash"]
+        msg = "검색 저장소를 다시 준비하고 있어요…" if force else f"'{v['name']}' 문서를 처리하고 있어요… (문서마다 처음 한 번만 걸려요)"
+        with st.spinner(msg):
             ss.chain, ss.store, ss.n_chunks = build_assistant(v["path"], v["hash"])
         ss.document_name = v["hash"]
-        if updated:
+        if changed:
             st.toast(f"백서가 {version_label(v)}(으)로 바뀌었어요", icon=":material/menu_book:")
     return v
+
+
+def recover_store():
+    """사라진 저장소 복구 : 다른 사용자가 이미 다시 만든 저장소가 있으면 그대로 쓰고, 없으면 다시 벡터화"""
+    v = active_version()
+    chain, store, n = build_assistant(v["path"], v["hash"])
+    if store is not ss.store:
+        try:
+            store._collection.count()                 # 살아 있는 저장소인지 확인
+            ss.chain, ss.store, ss.n_chunks, ss.document_name = chain, store, n, v["hash"]
+            return
+        except Exception:
+            pass
+    ensure_chain(force=True)
+
+
+def _store_missing(e):
+    return "does not exist" in str(e) or type(e).__name__ in ("NotFoundError", "InvalidCollectionException")
+
+
+def search(query, k):
+    """벡터 검색. 저장소(컬렉션)가 사라졌으면 백서를 자동으로 다시 벡터화한 뒤 한 번 더 시도"""
+    try:
+        return ss.store.similarity_search(query, k=k)
+    except Exception as e:
+        if not _store_missing(e):
+            raise
+        recover_store()
+        return ss.store.similarity_search(query, k=k)
+
+
+def current_chunks():
+    """현재 백서의 전체 청크 (저장소가 사라졌으면 다시 벡터화)"""
+    try:
+        return store_chunks(ss.store)
+    except Exception as e:
+        if not _store_missing(e):
+            raise
+        recover_store()
+        return store_chunks(ss.store)
 
 
 def to_history(messages):
@@ -872,18 +956,38 @@ div[data-testid="stChatInput"] > div:focus-within {border-color:var(--mint) !imp
 div[data-testid="stTextInputRootElement"]:focus-within {border-color:var(--mint) !important;}
 div[data-testid="stMarkdownContainer"] a {color:var(--mint-dark);}
 
-/* 머리말 */
-.app-head {display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;
-           padding-bottom:14px; margin-bottom:4px; border-bottom:1px solid var(--line);}
-.app-head .overline {font-size:.75rem; letter-spacing:.08em; color:var(--mint-dark); font-weight:700; margin-bottom:4px;}
-.app-head h1 {font-size:1.7rem; font-weight:800; margin:0; padding:0; color:var(--ink); letter-spacing:-.02em;}
-.app-head h1 .accent {color:var(--mint);}
-.app-head h1::after {content:""; display:block; width:44px; height:4px; border-radius:2px; margin-top:8px; background:var(--mint);}
-.app-head p {margin:8px 0 0 0; color:var(--muted); font-size:.93rem;}
 .chips {display:flex; gap:6px; flex-wrap:wrap;}
 .chips span {font-size:.76rem; padding:4px 11px; border-radius:999px; background:#FFFFFF; color:var(--ink); border:1px solid var(--line);}
 .chips span.mint {background:var(--mint-soft); color:var(--mint-dark); border-color:var(--mint-line);}
 .chips span.solid {background:var(--mint); color:#FFFFFF; border-color:var(--mint);}
+
+/* 머리말 : 'AIVLE School' 글자 = 숨은 버튼(이스터에그) */
+.st-key-app_head {border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:4px;}
+.st-key-app_head div[data-testid="stVerticalBlock"] {gap:0 !important;}
+.st-key-app_head div[data-testid="stMarkdownContainer"] {margin-bottom:0 !important;}   /* 기본 -1rem 여백 때문에 겹치던 것 */
+.st-key-title_row {gap:.5rem !important; margin-top:4px;}
+.overline {font-size:.75rem; letter-spacing:.08em; color:var(--mint-dark); font-weight:700; margin:0;}
+.st-key-egg button {padding:0 !important; min-height:0 !important; border:none !important; background:transparent !important;
+                    box-shadow:none !important; transition:transform .15s ease;}
+.st-key-egg button p {font-size:1.7rem !important; font-weight:800 !important; color:var(--ink) !important;
+                      letter-spacing:-.02em; line-height:1.25 !important; margin:0 !important;}
+.st-key-egg button:hover {transform:translateY(-1px);}
+.st-key-egg button:hover p {color:var(--mint-dark) !important;}
+.st-key-title_row div[data-testid="stMarkdownContainer"] p {margin:0 !important;}
+.title-accent {font-size:1.7rem; font-weight:800; color:var(--mint); letter-spacing:-.02em; line-height:1.25;}
+.title-bar {width:44px; height:4px; border-radius:2px; background:var(--mint); margin:8px 0 0 0;}
+.subtitle {margin:8px 0 0 0 !important; color:var(--muted); font-size:.93rem;}
+.chips.right {justify-content:flex-end;}
+
+/* 명언 팝업 */
+.quote-card {background:linear-gradient(160deg, var(--mint-soft), #FFFFFF 75%); border:1px solid var(--mint-line);
+             border-radius:14px; padding:18px 20px 16px 20px;}
+.quote-card .qmark {font-family:Georgia, serif; font-size:3.2rem; line-height:.6; color:var(--mint); height:22px;}
+.quote-card .qtext {font-size:1.18rem; font-weight:700; color:var(--ink); line-height:1.6; margin-top:6px; word-break:keep-all;}
+.quote-card .qwho {margin-top:12px; font-weight:700; color:var(--mint-dark); font-size:.95rem;}
+.quote-card .qsrc {font-weight:400; color:var(--muted); font-size:.82rem;}
+.qnote {margin:12px 0 6px 0; border-left:3px solid var(--mint); padding:4px 0 4px 12px; color:var(--ink); line-height:1.6; font-size:.93rem;}
+.qnote .label {font-size:.74rem; font-weight:800; color:var(--mint-dark); letter-spacing:.04em; margin-bottom:2px;}
 
 /* 사이드바 */
 .side-label {font-size:.75rem; font-weight:700; color:var(--muted); letter-spacing:.06em; margin:14px 0 6px 0;}
@@ -989,11 +1093,45 @@ n_q = sum(m["role"] == "user" for m in ss.messages)
 chips = [f"<span class='mint'>{esc(version_label(version)) if version else '백서 미등록'}</span>",
          f"<span>질문 {n_q}개</span>",
          f"<span class='solid'>{'관리자' if is_admin() else esc(ss.user['name'])}</span>"]
-st.markdown(
-    "<div class='app-head'><div><div class='overline'>KT AIVLE SCHOOL · 백서 기반 학습 도우미</div>"
-    "<h1>AIVLE School <span class='accent'>학습 도우미</span></h1>"
-    "<p>백서에 근거해 정확하게 답하고, 에이블스쿨에서 성장하기 위한 다음 도전을 함께 제안합니다.</p></div>"
-    f"<div class='chips'>{''.join(chips)}</div></div>", unsafe_allow_html=True)
+if "quote_order" not in ss:                         # 명언은 섞어서 겹치지 않게 차례로 보여 줌
+    ss.quote_order, ss.quote_pos, ss.quote_open = random.sample(range(len(QUOTES)), len(QUOTES)), -1, False
+
+
+def open_quote():
+    ss.quote_pos += 1
+    ss.quote_open = True
+
+
+def close_quote():
+    ss.quote_open = False
+
+
+@st.dialog("에이블러에게 건네는 한 문장", width="small", icon=":material/format_quote:", on_dismiss=close_quote)
+def quote_dialog():
+    q = QUOTES[ss.quote_order[ss.quote_pos % len(QUOTES)]]
+    st.markdown(
+        f"<div class='quote-card'><div class='qmark'>“</div><div class='qtext'>{esc(q['text'])}</div>"
+        f"<div class='qwho'>— {esc(q['who'])}<span class='qsrc'> · {esc(q['src'])}</span></div></div>"
+        f"<div class='qnote'><div class='label'>에이블스쿨에 도전하는 당신에게</div>{esc(q['note'])}</div>",
+        unsafe_allow_html=True)
+    st.button("다른 명언 보기", icon=":material/autorenew:", type="primary", width="stretch",
+              on_click=open_quote)                  # 누르면 팝업 안만 다음 명언으로 바뀜
+
+
+# 'AIVLE School' 글자는 겉보기엔 제목이지만 누르면 명언이 나오는 숨은 버튼(이스터에그)
+with st.container(key="app_head"):
+    h_left, h_right = st.columns([3, 1.4], vertical_alignment="bottom")
+    with h_left:
+        st.markdown("<div class='overline'>KT AIVLE SCHOOL · 백서 기반 학습 도우미</div>", unsafe_allow_html=True)
+        with st.container(key="title_row", horizontal=True, gap="small", vertical_alignment="center"):
+            st.button("AIVLE School", key="egg", type="tertiary", on_click=open_quote)
+            st.markdown("<span class='title-accent'>학습 도우미</span>", unsafe_allow_html=True)
+        st.markdown("<div class='title-bar'></div><p class='subtitle'>백서에 근거해 정확하게 답하고, "
+                    "에이블스쿨에서 성장하기 위한 다음 도전을 함께 제안합니다.</p>", unsafe_allow_html=True)
+    with h_right:
+        st.markdown(f"<div class='chips right'>{''.join(chips)}</div>", unsafe_allow_html=True)
+if ss.quote_open:                                   # 열린 상태를 기억해 다시 그려도 팝업이 유지됨
+    quote_dialog()
 
 tab_names = [":material/forum: 학습 도우미", ":material/event_note: 개인 맞춤 학습 지원"] + \
             ([":material/admin_panel_settings: 관리자"] if is_admin() else [])
@@ -1128,7 +1266,7 @@ with tabs[1]:
                 guide = ""
                 if ensure_chain():
                     guide = join_chunks([{"label": d.metadata.get("source_label", ""), "text": d.page_content}
-                                         for d in ss.store.similarity_search("학습 루틴 복습 주간 회고 뒤처졌을 때 학습 계획", k=4)], 3000)
+                                         for d in search("학습 루틴 복습 주간 회고 뒤처졌을 때 학습 계획", 4)], 3000)
                 profile = (f"- 트랙: {track}\n- 목표: {goal or '에이블스쿨 과정을 꾸준히 따라가기'}\n- 하루 학습 시간: {hours}\n"
                            f"- 보완하고 싶은 부분: {', '.join(weak) or '특별히 없음'}")
                 with st.spinner("백서의 학습 전략을 반영해 일정을 짜고 있어요…"):
@@ -1163,7 +1301,7 @@ with tabs[1]:
                         chunks, name = material_chunks(ss.material["path"], ss.material["hash"]), ss.material["name"]
                     else:
                         ensure_chain()
-                        chunks, name = store_chunks(ss.store), version_label(version)
+                        chunks, name = current_chunks(), version_label(version)
                     ss.note = {"source": name, **make_note(name, join_chunks(chunks, 60000))}
                 except Exception as e:
                     notice(f"학습 노트를 만들지 못했어요: {e}")
@@ -1206,9 +1344,9 @@ with tabs[1]:
                         ensure_chain()
                         if topic:
                             picked = [{"label": d.metadata.get("source_label", ""), "text": d.page_content}
-                                      for d in ss.store.similarity_search(topic, k=8)]
+                                      for d in search(topic, 8)]
                         else:
-                            allc = store_chunks(ss.store)
+                            allc = current_chunks()
                             picked = random.sample(allc, min(8, len(allc)))
                     ss.quiz = make_quiz(join_chunks(picked, 12000), n_items, level or "보통")
                     ss.quiz_id += 1
@@ -1321,7 +1459,7 @@ if question and ready_to_chat:
             role_marker("assistant")
             mid = uuid.uuid4().hex[:10]
             try:
-                docs = ss.store.similarity_search(make_search_query({"question": question, "history": history}), k=TOP_K)
+                docs = search(make_search_query({"question": question, "history": history}), TOP_K)
                 answer = st.write_stream(guard_not_found(
                     ss.chain.stream({"question": question, "history": history, "docs": docs})))
                 sources = [{"n": i, "label": d.metadata.get("source_label", ""), "text": d.page_content.split("\n", 1)[-1]}

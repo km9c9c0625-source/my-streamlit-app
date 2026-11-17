@@ -760,14 +760,37 @@ def to_history(messages):
     return hist
 
 
-def chat_markdown():
-    lines = ["# AIVLE School 학습 도우미 대화 기록\n"]
+def plain_text(text):
+    """마크다운 기호를 빼서 메모장에서 읽기 쉽게 정리"""
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)               # **굵게** → 굵게
+    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.M)            # # 제목 → 제목
+    text = re.sub(r"^\|?\s*:?-{3,}.*$\n?", "", text, flags=re.M)   # 표 구분선 |---|---| 삭제
+    text = re.sub(r"^\|(.*)\|\s*$", lambda m: " | ".join(c.strip() for c in m[1].split("|")), text, flags=re.M)  # |a|b| → a | b
+    return text.strip()
+
+
+def chat_text():
+    """대화 기록 → 텍스트 파일(.txt) 내용"""
+    v = active_version()
+    lines = ["AIVLE School 학습 도우미 대화 기록",
+             f"저장 시각 : {now_kst()}  ·  사용자 : {ss.user['name']}",
+             f"참고 백서 : {version_label(v) if v else '없음'}", "=" * 50, ""]
     for m in ss.messages:
-        who = "🙋 질문" if m["role"] == "user" else "🎓 답변"
-        lines.append(f"**{who}**\n\n{m.get('display') or m['content']}\n")
-        for s in m.get("sources", []):
-            lines.append(f"- [{s['n']}] {s['label']}")
-    return "\n".join(lines)
+        if m["role"] == "user":
+            how = {"voice": " (음성)", "file": f" (파일 첨부: {m.get('file', '')})"}.get(m.get("kind"), "")
+            lines += [f"[질문]{how}", plain_text(m.get("display") or m["content"]), ""]
+        else:
+            lines += ["[답변]", plain_text(m["content"])]
+            sources = m.get("sources", [])
+            cited = cited_numbers(m["content"], len(sources))
+            shown = [x for x in sources if x["n"] in cited] or ([] if m.get("not_found") else sources)
+            if shown:
+                lines.append("")
+                lines += [f"  각주 [{x['n']}] {x['label']}" for x in shown]
+            if m.get("rating"):
+                lines.append(f"  평가 : {m['rating']}")
+            lines += ["", "-" * 50, ""]
+    return "\n".join(lines).encode("utf-8-sig")       # BOM 포함 → 윈도우 메모장에서도 한글이 깨지지 않음
 
 
 # ════════════════════════════════════════════════════════
@@ -845,8 +868,8 @@ with st.sidebar:
     show_sources = st.toggle("근거 원문 함께 보기", value=False)
     c1, c2 = st.columns(2)
     c1.button("대화 삭제", icon="🗑️", on_click=clear_chat, width="stretch", disabled=not ss.messages)
-    c2.download_button("대화 저장", data=chat_markdown(), file_name="aivle_chat.md", icon="💾",
-                       mime="text/markdown", width="stretch", disabled=not ss.messages)
+    c2.download_button("대화 저장", data=chat_text(), file_name=f"aivle_chat_{datetime.now(KST):%Y%m%d_%H%M}.txt",
+                       icon="💾", mime="text/plain", width="stretch", disabled=not ss.messages)
     st.caption("답변은 관리자가 등록한 AIVLE School 백서를 근거로 합니다. "
                "모집 조건·일정은 기수마다 달라질 수 있으니 공식 모집 공고를 꼭 확인하세요.")
 

@@ -72,7 +72,7 @@ TOP_K = 5
 HISTORY_TURNS = 6
 MAX_FILE_CHARS = 3000                          # 채팅에 첨부한 텍스트 파일에서 읽을 최대 글자 수
 ADMIN_PASSWORD = secret("ADMIN_PASSWORD", "admin1234")
-NOT_FOUND = "백서에서 확인되지 않아요"
+NOT_FOUND = "AIVLE School 백서와 관련된 내용이 아니에요"   # 백서로 답할 수 없을 때 이 한 문장만 답함
 KST = timezone(timedelta(hours=9))
 OFFICIAL_LINKS = [                             # AIVLE School 공식 채널
     ("공식 홈페이지", "https://aivle.kt.co.kr/", ":material/home:"),
@@ -242,9 +242,12 @@ AIVLE School을 먼저 경험한 선배이자 성장 코치로서, ① 백서에
    두 가지 이상을 비교하거나 항목이 많으면 마크다운 표나 글머리표로 정리합니다. 표 앞뒤에는 빈 줄을 둡니다.
 3. 마지막 줄 : "도전 한 걸음:"으로 시작해, 질문자가 오늘이나 이번 주에 해 볼 구체적인 행동 하나를 제안합니다.
 
+[백서로 답할 수 없는 질문]
+- [참고 문서]로 답할 수 없는 질문(에이블스쿨과 관계없는 질문 포함)에는 정확히 "{not_found}." 한 문장만 출력합니다.
+- 이때 사과, '하지만', 다른 주제 제안, 일반 상식 설명, 도전 한 걸음 등 어떤 말도 덧붙이지 않습니다.
+- 문서에 일부만 있으면 있는 내용만 답하고, 없는 부분은 추측하지 않습니다.
+
 [원칙]
-- 문서에 없는 내용은 추측하지 말고 정확히 "{not_found}."라고 쓴 뒤,
-  공식 홈페이지·모집 공고·AIVLE 1:1 문의에서 확인하도록 안내합니다. 이때도 도전 한 걸음은 제안합니다.
 - 지원 자격·일정·금액·출결·수료 기준은 기수마다 달라질 수 있으니 최신 모집 공고 확인을 한 줄로 덧붙입니다.
 - 수료생 후기는 '한 선배의 경험'으로 소개하고, 모든 사람에게 해당하는 사실처럼 단정하지 않습니다.
 - 망설임이나 걱정이 보이면 백서 근거(지원 제도, 학습 지원, 선배 경험)를 들어 따뜻하고 구체적으로 응원합니다.
@@ -252,7 +255,6 @@ AIVLE School을 먼저 경험한 선배이자 성장 코치로서, ① 백서에
 - 존댓말로 군더더기 없이 답합니다. 이모지, 제목(#), 과한 굵은 글씨, "물론이죠!"·"좋은 질문이에요" 같은
   상투적인 표현은 쓰지 않고, 상담 선배가 말하듯 담백하게 씁니다.
 - 이전 대화를 참고해 '그럼', '그건' 같은 후속 질문의 맥락을 이해합니다.
-- 에이블스쿨·학습과 관계없는 질문이면 도울 수 있는 범위를 짧게 알려 주고, 물어볼 만한 질문 하나를 제안합니다.
 
 [참고 문서]
 {context}"""
@@ -501,6 +503,34 @@ def parse_submission(sub):
     return (text or None), meta
 
 
+REFUSAL_RE = re.compile(                            # '백서/문서에 없다', '관련된 내용이 아니다' 류의 표현만
+    r"관련(된|이 있는)?\s*(내용|정보|질문)이\s*아(니|닙|닌)|관련이\s*없는\s*(질문|내용)"   # 아니에요·아닙니다·아닌
+    r"|(백서|문서|자료)(에서는|에서|에는|에)?\s*.{0,12}(확인되지\s*않|확인할\s*수\s*없|포함되어\s*있지\s*않"
+    r"|나와\s*있지\s*않|다루지\s*않|언급되어\s*있지\s*않|찾을\s*수\s*없)"
+    r"|(정보|내용)(가|이|는|은)?\s*(없|포함되어\s*있지\s*않|확인되지\s*않|나와\s*있지\s*않)")
+SENTENCE_END = re.compile(r"[.!?。]|\n")
+
+
+def guard_not_found(tokens):
+    """LLM 답변 스트림 감시 : 첫 문장이 '백서에 없다/관련 없다'는 내용이면
+    고정 문장 한 줄만 내보내고 뒤('하지만…', 도전 한 걸음 등)는 화면에 나오기 전에 버림"""
+    buf, decided = "", False
+    for tok in tokens:
+        if decided:
+            yield tok
+            continue
+        buf += tok
+        end = SENTENCE_END.search(buf)
+        if end or len(buf) > 150:                     # 첫 문장이 완성될 때까지만 잠시 모아 둠
+            if REFUSAL_RE.search(buf[:end.end()] if end else buf):
+                yield NOT_FOUND + "."
+                return
+            decided = True
+            yield buf
+    if not decided and buf:
+        yield NOT_FOUND + "." if REFUSAL_RE.search(buf) else buf
+
+
 def fix_markdown(text):
     """표 앞뒤에 빈 줄을 넣어 마크다운 표가 깨지지 않게 함"""
     out = []
@@ -569,7 +599,7 @@ class Quiz(BaseModel):
 
 
 WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
-CAT_STYLE = {"학습": "mint", "실습": "coral", "복습": "mint-soft", "회고": "coral-soft"}
+CAT_STYLE = {"학습": "mint", "실습": "deep", "복습": "mint-soft", "회고": "gray"}
 
 
 def study_dates(start, weeks, rest_days):
@@ -813,32 +843,32 @@ def split_challenge(answer):
 st.markdown("""
 <style>
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
-:root {--coral:#F2725E; --coral-dark:#D9573F; --coral-soft:#FDECE8; --coral-line:#F7CFC6;
-       --mint:#2EC4A6; --mint-dark:#13917A; --mint-soft:#E6F7F3; --mint-line:#BFE9DE;
-       --ink:#1F2937; --muted:#6B7280; --line:#E6EAEE; --paper:#F6FBFA;}
+/* KT AIVLE School 로고 민트(#30A4A0) 한 가지 색 + 회색 계열 */
+:root {--mint:#2FA4A0; --mint-dark:#1F7F7B; --mint-deep:#176663; --mint-mid:#8FD0CC; --mint-soft:#E9F6F5; --mint-line:#C3E5E3;
+       --ink:#1F2937; --muted:#6B7280; --line:#E5E9EC; --gray-soft:#F2F4F6; --paper:#F6FAFA;}
 html, body, p, li, label, input, textarea, button, h1, h2, h3, h4, h5, h6, td, th {
   font-family:"Pretendard", "Source Sans Pro", -apple-system, sans-serif;}
 .block-container {padding-top:3.4rem;}
 section[data-testid="stSidebar"] {background:var(--paper); border-right:1px solid var(--line);}
 
-/* Streamlit 기본 빨강 → 코랄·민트 (config.toml이 없어도 적용) */
+/* Streamlit 기본 빨강 → 민트 (config.toml이 없어도 적용) */
 button[data-testid="stBaseButton-primary"], button[data-testid="stBaseButton-primaryFormSubmit"] {
-  background:var(--coral) !important; border-color:var(--coral) !important; color:#FFFFFF !important;}
+  background:var(--mint) !important; border-color:var(--mint) !important; color:#FFFFFF !important;}
 button[data-testid="stBaseButton-primary"]:hover, button[data-testid="stBaseButton-primaryFormSubmit"]:hover {
-  background:var(--coral-dark) !important; border-color:var(--coral-dark) !important;}
+  background:var(--mint-dark) !important; border-color:var(--mint-dark) !important;}
 button[data-testid="stBaseButton-secondary"]:hover, a[data-testid^="stBaseLinkButton"]:hover {
   border-color:var(--mint) !important; color:var(--mint-dark) !important;}
-div[data-testid="stButtonGroup"] button[aria-checked="true"] {background:var(--mint-soft) !important; border-color:var(--mint) !important;}
+div[data-testid="stButtonGroup"] button[aria-checked="true"] {background:var(--mint-soft) !important; border-color:var(--mint) !important; color:var(--mint-dark) !important;}
 div[data-testid="stButtonGroup"] button[aria-checked="true"] * {color:var(--mint-dark) !important;}
-div[data-testid="stTab"][aria-selected="true"], div[data-testid="stTab"][aria-selected="true"] * {color:var(--coral) !important;}
-div[data-testid="stTab"][aria-selected="true"] > div:not([data-testid]) {background:var(--coral) !important;}
+div[data-testid="stTab"][aria-selected="true"], div[data-testid="stTab"][aria-selected="true"] * {color:var(--mint-dark) !important;}
+div[data-testid="stTab"][aria-selected="true"] > div:not([data-testid]) {background:var(--mint) !important;}
 div[data-testid="stCheckbox"][data-selected="true"] label > div:not([data-testid]) {background:var(--mint) !important;}
-div[data-testid="stSlider"] div[role="group"] > div > div:first-child {filter:hue-rotate(8deg) saturate(.9);}
-div[data-testid="stSlider"] div[role="group"] > div > div:has(> div[data-testid="stSliderThumbValue"]) {background:var(--coral) !important;}
-div[data-testid="stSliderThumbValue"] p {color:var(--coral) !important;}
+div[data-testid="stSlider"] div[role="group"] > div > div:first-child {filter:hue-rotate(178deg) saturate(.62) brightness(.9);}
+div[data-testid="stSlider"] div[role="group"] > div > div:has(> div[data-testid="stSliderThumbValue"]) {background:var(--mint) !important;}
+div[data-testid="stSliderThumbValue"], div[data-testid="stSliderThumbValue"] * {color:var(--mint-dark) !important; border-color:transparent !important;}
 div[data-testid="stMultiSelectTagsContainer"] span[data-tag] {background:var(--mint) !important;}
 div[data-testid="stChatInput"] > div {border-color:var(--mint-line) !important;}
-div[data-testid="stChatInput"] > div:focus-within {border-color:var(--coral) !important;}
+div[data-testid="stChatInput"] > div:focus-within {border-color:var(--mint) !important;}
 div[data-testid="stTextInputRootElement"]:focus-within {border-color:var(--mint) !important;}
 div[data-testid="stMarkdownContainer"] a {color:var(--mint-dark);}
 
@@ -847,50 +877,50 @@ div[data-testid="stMarkdownContainer"] a {color:var(--mint-dark);}
            padding-bottom:14px; margin-bottom:4px; border-bottom:1px solid var(--line);}
 .app-head .overline {font-size:.75rem; letter-spacing:.08em; color:var(--mint-dark); font-weight:700; margin-bottom:4px;}
 .app-head h1 {font-size:1.7rem; font-weight:800; margin:0; padding:0; color:var(--ink); letter-spacing:-.02em;}
-.app-head h1 .accent {color:var(--coral);}
-.app-head h1::after {content:""; display:block; width:44px; height:4px; border-radius:2px; margin-top:8px;
-                     background:linear-gradient(90deg, var(--coral) 50%, var(--mint) 50%);}
+.app-head h1 .accent {color:var(--mint);}
+.app-head h1::after {content:""; display:block; width:44px; height:4px; border-radius:2px; margin-top:8px; background:var(--mint);}
 .app-head p {margin:8px 0 0 0; color:var(--muted); font-size:.93rem;}
 .chips {display:flex; gap:6px; flex-wrap:wrap;}
 .chips span {font-size:.76rem; padding:4px 11px; border-radius:999px; background:#FFFFFF; color:var(--ink); border:1px solid var(--line);}
 .chips span.mint {background:var(--mint-soft); color:var(--mint-dark); border-color:var(--mint-line);}
-.chips span.coral {background:var(--coral-soft); color:var(--coral-dark); border-color:var(--coral-line);}
+.chips span.solid {background:var(--mint); color:#FFFFFF; border-color:var(--mint);}
 
 /* 사이드바 */
 .side-label {font-size:.75rem; font-weight:700; color:var(--muted); letter-spacing:.06em; margin:14px 0 6px 0;}
 .doc-card {background:#FFFFFF; border:1px solid var(--mint-line); border-left:4px solid var(--mint); border-radius:10px; padding:10px 12px;}
 .doc-card .name {font-weight:700; color:var(--ink); font-size:.92rem;}
 .doc-card .sub {font-size:.78rem; color:var(--muted); margin-top:2px;}
-.doc-card.empty {border-color:var(--coral-line); border-left-color:var(--coral);}
+.doc-card.empty {border-color:var(--line); border-left-color:#9CA3AF;}
 .who {display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;}
 .role-badge {font-size:.72rem; padding:2px 9px; border-radius:999px; background:var(--mint-soft); color:var(--mint-dark);}
-.role-badge.admin {background:var(--coral-soft); color:var(--coral-dark);}
+.role-badge.admin {background:var(--mint); color:#FFFFFF;}
 
-/* 패널 */
-.panel-title {font-weight:700; color:var(--ink); font-size:.95rem; margin:0 0 8px 0; padding-left:9px; border-left:3px solid var(--coral);}
+/* 패널 · 안내 */
+.panel-title {font-weight:700; color:var(--ink); font-size:.95rem; margin:0 0 8px 0; padding-left:9px; border-left:3px solid var(--mint);}
 .welcome {background:var(--mint-soft); border:1px solid var(--mint-line); border-radius:12px; padding:14px 16px; color:var(--ink); line-height:1.65;}
 .welcome .muted, .muted {color:var(--muted); font-size:.88rem;}
-.notice {background:var(--coral-soft); border:1px solid var(--coral-line); border-radius:12px; padding:14px 16px; color:var(--ink); line-height:1.65;}
+.notice {background:var(--gray-soft); border:1px solid var(--line); border-left:4px solid #9CA3AF; border-radius:12px;
+         padding:12px 16px; color:var(--ink); line-height:1.65;}
 
-/* 대화 : 메신저형 말풍선 */
+/* 대화 : 메신저형 말풍선 (내 질문 = 오른쪽 연민트, 답변 = 흰 카드 + 민트 선) */
 div[data-testid="stElementContainer"]:has(.role-user), div[data-testid="stElementContainer"]:has(.role-bot) {display:none;}
 div[data-testid="stChatMessage"] {background:transparent !important; padding:2px 0 !important; gap:10px;}
 div[data-testid="stChatMessage"]:has(.role-user) {flex-direction:row-reverse;}
 div[data-testid="stChatMessage"]:has(.role-user) div[data-testid="stChatMessageContent"] {
-  flex:0 1 auto; max-width:78%; background:var(--coral-soft); border:1px solid var(--coral-line);
+  flex:0 1 auto; max-width:78%; background:var(--mint-soft); border:1px solid var(--mint-line);
   border-radius:16px 4px 16px 16px; padding:10px 14px;}
 div[data-testid="stChatMessage"]:has(.role-bot) div[data-testid="stChatMessageContent"] {
   background:#FFFFFF; border:1px solid var(--line); border-left:3px solid var(--mint);
   border-radius:4px 16px 16px 16px; padding:12px 16px;}
-.challenge {margin-top:10px; background:var(--coral-soft); border:1px solid var(--coral-line); border-radius:10px;
+.challenge {margin-top:10px; background:#FFFFFF; border:1px solid var(--mint); border-radius:10px;
             padding:10px 14px; color:var(--ink); line-height:1.6;}
-.challenge .label {font-size:.74rem; font-weight:800; color:var(--coral-dark); letter-spacing:.06em; margin-bottom:2px;}
+.challenge .label {font-size:.74rem; font-weight:800; color:var(--mint-dark); letter-spacing:.06em; margin-bottom:2px;}
 .fn {font-size:.8rem; color:var(--muted); margin-top:10px; padding-top:8px; border-top:1px dashed var(--line); line-height:1.75;}
 .fn .t {font-weight:700; color:var(--ink); font-size:.78rem; letter-spacing:.04em;}
 .fn b {color:var(--mint-dark);}
 .src-label {font-weight:700; font-size:.86rem; color:var(--ink); border-left:3px solid var(--mint); padding-left:8px; margin:12px 0 4px 0;}
-.ok {color:var(--mint-dark); font-weight:700;} .ng {color:var(--coral-dark); font-weight:700;}
-.badge-on {font-size:.72rem; padding:2px 8px; border-radius:999px; background:var(--mint-soft); color:var(--mint-dark); margin-left:6px;}
+.ok {color:var(--mint-dark); font-weight:700;} .ng {color:var(--muted); font-weight:700;}
+.badge-on {font-size:.72rem; padding:2px 8px; border-radius:999px; background:var(--mint); color:#FFFFFF; margin-left:6px;}
 
 /* 달력 */
 .cal-month {margin:8px 0 18px 0;}
@@ -899,17 +929,22 @@ div[data-testid="stChatMessage"]:has(.role-bot) div[data-testid="stChatMessageCo
 .cal-head {text-align:center; font-size:.76rem; color:var(--muted); padding:4px 0;}
 .cal-day {min-height:86px; border:1px solid var(--line); border-radius:8px; padding:4px; background:#FFFFFF; overflow:hidden;}
 .cal-day.out {background:#FAFBFB; opacity:.55;}
-.cal-day.today {border:2px solid var(--coral);}
+.cal-day.today {border:2px solid var(--mint);}
 .cal-day .num {font-size:.74rem; color:var(--muted); margin-bottom:2px;}
 .chip {font-size:.71rem; line-height:1.3; border-radius:6px; padding:2px 5px; margin-bottom:2px; color:#FFFFFF;}
-.chip.mint {background:var(--mint);} .chip.coral {background:var(--coral);}
-.chip.mint-soft {background:var(--mint-soft); color:var(--mint-dark);} .chip.coral-soft {background:var(--coral-soft); color:var(--coral-dark);}
+.chip.mint {background:var(--mint);} .chip.deep {background:var(--mint-deep);}
+.chip.mint-soft {background:var(--mint-soft); color:var(--mint-dark);} .chip.gray {background:var(--gray-soft); color:var(--ink);}
 </style>
 """, unsafe_allow_html=True)
 
 version = active_version()
 has_key = bool(os.environ.get("OPENAI_API_KEY"))
 esc = html.escape
+
+
+def notice(msg, target=st):
+    """오류·경고도 빨강/노랑 대신 회색 안내 박스로 표시"""
+    target.markdown(f"<div class='notice'>{esc(msg)}</div>", unsafe_allow_html=True)
 
 # ── 사이드바 : 계정 / 현재 백서 / 대화 ──
 with st.sidebar:
@@ -922,7 +957,7 @@ with st.sidebar:
                 st.text_input("관리자 비밀번호", type="password", key="login_pw")
             st.button("입장하기", type="primary", icon=":material/login:", on_click=login, width="stretch")
             if ss.login_error:
-                st.error(ss.login_error)
+                st.markdown(f"<div class='notice'>{esc(ss.login_error)}</div>", unsafe_allow_html=True)
             st.caption("로그인하지 않아도 게스트로 바로 질문할 수 있어요.")
         else:
             role = "관리자" if is_admin() else "사용자"
@@ -953,7 +988,7 @@ with st.sidebar:
 n_q = sum(m["role"] == "user" for m in ss.messages)
 chips = [f"<span class='mint'>{esc(version_label(version)) if version else '백서 미등록'}</span>",
          f"<span>질문 {n_q}개</span>",
-         f"<span class='coral'>{'관리자' if is_admin() else esc(ss.user['name'])}</span>"]
+         f"<span class='solid'>{'관리자' if is_admin() else esc(ss.user['name'])}</span>"]
 st.markdown(
     "<div class='app-head'><div><div class='overline'>KT AIVLE SCHOOL · 백서 기반 학습 도우미</div>"
     "<h1>AIVLE School <span class='accent'>학습 도우미</span></h1>"
@@ -982,12 +1017,11 @@ def render_assistant_extras(m):
         title = "각주" if cited else "참고한 자료"
         items = "".join(f"<div><b>[{s['n']}]</b> {esc(s['label'])}</div>" for s in shown)
         st.markdown(f"<div class='fn'><div class='t'>{title}</div>{items}</div>", unsafe_allow_html=True)
-    if m.get("not_found"):
-        st.caption("백서에 없는 내용이에요. 아래 공식 채널에서 확인해 보세요.")
+    if m.get("not_found"):                            # 한 문장 답변 + 공식 채널 버튼만
         cols = st.columns(len(OFFICIAL_LINKS))
         for col, (label, url, icon) in zip(cols, OFFICIAL_LINKS):
             col.link_button(label.replace("공식 홈페이지", "홈페이지").replace("AIVLE ", ""), url, icon=icon, width="stretch")
-    if show_sources and sources:
+    if show_sources and sources and not m.get("not_found"):
         with st.expander(f"근거 원문 {len(sources)}개", icon=":material/manage_search:"):
             for s in sources:
                 st.markdown(f"<div class='src-label'>[{s['n']}] {esc(s['label'])}</div>", unsafe_allow_html=True)
@@ -1089,7 +1123,7 @@ with tabs[1]:
         if make:
             dates = study_dates(start, weeks, rest)
             if not dates:
-                st.warning("학습할 날짜가 없어요. 쉬는 요일을 줄여 주세요.")
+                notice("학습할 날짜가 없어요. 쉬는 요일을 줄여 주세요.")
             else:
                 guide = ""
                 if ensure_chain():
@@ -1102,7 +1136,7 @@ with tabs[1]:
                         ss.plan = {**make_plan(profile, dates, guide), "start": start.isoformat(),
                                    "end": dates[-1].isoformat()}
                     except Exception as e:
-                        st.error(f"계획을 만들지 못했어요: {e}")
+                        notice(f"계획을 만들지 못했어요: {e}")
         if ss.plan:
             plan = ss.plan
             st.markdown(f"<div class='welcome'>{esc(plan['summary'])}</div>", unsafe_allow_html=True)
@@ -1132,7 +1166,7 @@ with tabs[1]:
                         chunks, name = store_chunks(ss.store), version_label(version)
                     ss.note = {"source": name, **make_note(name, join_chunks(chunks, 60000))}
                 except Exception as e:
-                    st.error(f"학습 노트를 만들지 못했어요: {e}")
+                    notice(f"학습 노트를 만들지 못했어요: {e}")
         if ss.note:
             note = ss.note
             st.markdown(f"#### {note['title']}")
@@ -1180,7 +1214,7 @@ with tabs[1]:
                     ss.quiz_id += 1
                     ss.quiz_graded = False
                 except Exception as e:
-                    st.error(f"퀴즈를 만들지 못했어요: {e}")
+                    notice(f"퀴즈를 만들지 못했어요: {e}")
         if ss.quiz:
             with st.form(f"quiz_form_{ss.quiz_id}"):
                 for i, item in enumerate(ss.quiz, start=1):
@@ -1206,8 +1240,8 @@ with tabs[1]:
 if is_admin():
     with tabs[2]:
         if ADMIN_PASSWORD == "admin1234":
-            st.warning("기본 관리자 비밀번호를 쓰고 있어요. Streamlit Cloud 앱 Settings → Secrets에 ADMIN_PASSWORD를 설정하세요.",
-                       icon=":material/lock:")
+            st.markdown("<div class='notice'><b>기본 관리자 비밀번호를 쓰고 있어요.</b> "
+                        "Streamlit Cloud 앱 Settings → Secrets에 ADMIN_PASSWORD를 설정하세요.</div>", unsafe_allow_html=True)
         a1, a2 = st.columns([1, 1.3], gap="large")
         with a1:
             st.markdown('<div class="panel-title">백서 관리</div>', unsafe_allow_html=True)
@@ -1222,7 +1256,7 @@ if is_admin():
                             build_assistant(v["path"], v["hash"])
                         st.rerun()                      # 모든 사용자에게 새 버전 적용 (화면에 '백서가 바뀌었어요' 알림)
                     except Exception as e:
-                        st.error(f"벡터화에 실패했어요: {e}")
+                        notice(f"벡터화에 실패했어요: {e}")
             st.markdown('<div class="panel-title" style="margin-top:14px">버전 기록</div>', unsafe_allow_html=True)
             for v in reversed(versions()):
                 with st.container(border=True):
@@ -1269,7 +1303,7 @@ question, meta = None, {}
 try:
     question, meta = parse_submission(submission)
 except Exception as e:
-    status_slot.error(f"음성/파일을 읽지 못했어요: {e}")
+    notice(f"음성/파일을 읽지 못했어요: {e}", status_slot)
 if not question and ss.pending:
     question, meta = ss.pending, {"kind": "text", "display": ss.pending}
     ss.pending = None
@@ -1288,13 +1322,14 @@ if question and ready_to_chat:
             mid = uuid.uuid4().hex[:10]
             try:
                 docs = ss.store.similarity_search(make_search_query({"question": question, "history": history}), k=TOP_K)
-                answer = st.write_stream(ss.chain.stream({"question": question, "history": history, "docs": docs}))
+                answer = st.write_stream(guard_not_found(
+                    ss.chain.stream({"question": question, "history": history, "docs": docs})))
                 sources = [{"n": i, "label": d.metadata.get("source_label", ""), "text": d.page_content.split("\n", 1)[-1]}
                            for i, d in enumerate(docs, start=1)]
             except Exception as e:
                 answer, sources = f"답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요. ({e})", []
                 st.markdown(answer)
-    not_found = NOT_FOUND in answer
+    not_found = answer.strip().startswith(NOT_FOUND)
     ss.messages.append({"role": "assistant", "content": answer, "sources": sources, "id": mid,
                         "not_found": not_found, "rating": ""})
     log_answer({"id": mid, "time": now_kst(), "user": ss.user["name"], "question": question[:1000],
@@ -1307,4 +1342,4 @@ elif ready_to_chat and (ss.chain is None or ss.document_name != version["hash"])
             ensure_chain()
         st.rerun()
     except Exception as e:
-        status_slot.error(f"백서를 준비하지 못했어요: {e}")
+        notice(f"백서를 준비하지 못했어요: {e}", status_slot)
